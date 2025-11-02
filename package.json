@@ -19,7 +19,7 @@
     "advanced": "bun run examples/advanced-example.ts",
     "recover-example": "bun run examples/recover-example.ts",
     "test": "bun test",
-    "release": "bun run -b emantic-release"
+    "release": "bunx --bun emantic-release"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",

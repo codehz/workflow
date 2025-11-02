@@ -1,0 +1,16 @@
+{
+  "name": "@codehz/workflow",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "example": "bun run examples/example.ts",
+    "advanced": "bun run examples/advanced-example.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

@@ -24,6 +24,7 @@ Default to using Bun instead of Node.js.
 
 ## Testing
 
+Use `bunx tsc --noEmit` to type-check.
 Use `bun test` to run tests.
 
 ```ts

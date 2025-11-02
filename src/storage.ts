@@ -1,16 +1,27 @@
 // storage.ts - 存储接口和内存实现
 
-import type { InstanceStatusDetail, StepState, InstanceStatus, InstanceSummary, WorkflowStorage } from './types.js';
-import { DISABLED_PROMISE } from './constants.js';
+import { DISABLED_PROMISE } from "./constants.js";
+import type {
+  InstanceStatusDetail,
+  InstanceSummary,
+  StepState,
+  WorkflowStorage,
+} from "./types.js";
 
 export class InMemoryWorkflowStorage implements WorkflowStorage {
   private storage = new Map<string, InstanceStatusDetail>();
 
-  async saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void> {
+  async saveInstance(
+    instanceId: string,
+    state: InstanceStatusDetail,
+  ): Promise<void> {
     this.storage.set(instanceId, { ...state });
   }
 
-  async updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void> {
+  async updateInstance(
+    instanceId: string,
+    updates: Partial<InstanceStatusDetail>,
+  ): Promise<void> {
     const existing = this.storage.get(instanceId);
     if (existing) {
       this.storage.set(instanceId, { ...existing, ...updates });
@@ -20,7 +31,11 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
     }
   }
 
-  async updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void> {
+  async updateStepState(
+    instanceId: string,
+    stepName: string,
+    stepState: StepState,
+  ): Promise<void> {
     const existing = this.storage.get(instanceId);
     if (existing) {
       const stepStates = existing.stepStates || {};
@@ -40,26 +55,42 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
   }
 
   async listInstanceSummaries(): Promise<InstanceSummary[]> {
-    return Array.from(this.storage.entries()).map(([id, state]) => ({ id, status: state.status }));
+    return Array.from(this.storage.entries()).map(([id, state]) => ({
+      id,
+      status: state.status,
+    }));
   }
 
   async listActiveInstances(): Promise<string[]> {
     return Array.from(this.storage.entries())
-      .filter(([_, state]) => state.status !== 'terminated' && state.status !== 'complete')
+      .filter(
+        ([_, state]) =>
+          state.status !== "terminated" && state.status !== "complete",
+      )
       .map(([id]) => id);
   }
 }
 
 export class DisabledWorkflowStorage implements WorkflowStorage {
-  async saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void> {
+  async saveInstance(
+    instanceId: string,
+    state: InstanceStatusDetail,
+  ): Promise<void> {
     return DISABLED_PROMISE;
   }
 
-  async updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void> {
+  async updateInstance(
+    instanceId: string,
+    updates: Partial<InstanceStatusDetail>,
+  ): Promise<void> {
     return DISABLED_PROMISE;
   }
 
-  async updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void> {
+  async updateStepState(
+    instanceId: string,
+    stepName: string,
+    stepState: StepState,
+  ): Promise<void> {
     return DISABLED_PROMISE;
   }
 

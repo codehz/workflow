@@ -1,6 +1,6 @@
-import { test, expect } from "bun:test";
-import { LocalWorkflow } from "../src/workflow.js";
+import { expect, test } from "bun:test";
 import { WorkflowEntrypoint } from "../src/types.js";
+import { LocalWorkflow } from "../src/workflow.js";
 
 class TestWorkflow extends WorkflowEntrypoint<any, any> {
   async run(event: any, step: any) {
@@ -30,12 +30,18 @@ test("shutdown 停止工作流执行", async () => {
   // 实例应该处于操作被阻塞的状态
   // 因为关闭禁用了存储，任何进一步的操作都会无限等待
   const statusPromise = instance.status();
-  
+
   // 使用 Promise.race 来验证 status() 会挂起（永不resolve）
-  const timeoutPromise = new Promise((_, reject) => 
-    setTimeout(() => reject(new Error('Expected infinite wait, but operation completed')), 100)
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(
+      () =>
+        reject(new Error("Expected infinite wait, but operation completed")),
+      100,
+    ),
   );
-  
+
   // 如果 status() 在100ms内完成，就抛出错误（因为它应该无限等待）
-  await expect(Promise.race([statusPromise, timeoutPromise])).rejects.toThrow('Expected infinite wait, but operation completed');
+  await expect(Promise.race([statusPromise, timeoutPromise])).rejects.toThrow(
+    "Expected infinite wait, but operation completed",
+  );
 });

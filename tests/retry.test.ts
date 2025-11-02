@@ -1,29 +1,37 @@
-import { test, expect } from "bun:test";
-import { WorkflowEntrypoint, LocalWorkflow, NonRetryableError } from "../src/index.js";
+import { expect, test } from "bun:test";
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
+import {
+  LocalWorkflow,
+  NonRetryableError,
+  WorkflowEntrypoint,
+} from "../src/index.js";
 
 // 重试测试工作流
 class RetryWorkflow extends WorkflowEntrypoint<{}, {}> {
   private attempts = 0;
 
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
-    return await step.do('retry-step', {
-      retries: { limit: 2, delay: 50 }
-    }, async () => {
-      this.attempts++;
-      if (this.attempts < 3) {
-        throw new Error('Temporary failure');
-      }
-      return 'success';
-    });
+    return await step.do(
+      "retry-step",
+      {
+        retries: { limit: 2, delay: 50 },
+      },
+      async () => {
+        this.attempts++;
+        if (this.attempts < 3) {
+          throw new Error("Temporary failure");
+        }
+        return "success";
+      },
+    );
   }
 }
 
 // 非重试错误测试
 class NonRetryWorkflow extends WorkflowEntrypoint<{}, {}> {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
-    return await step.do('non-retry-step', async () => {
-      throw new NonRetryableError('Non-retryable error');
+    return await step.do("non-retry-step", async () => {
+      throw new NonRetryableError("Non-retryable error");
     });
   }
 }
@@ -32,12 +40,14 @@ class NonRetryWorkflow extends WorkflowEntrypoint<{}, {}> {
 class ErrorHandlingWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
     try {
-      await step.do('error-step', async () => {
-        throw new Error('Test error');
+      await step.do("error-step", async () => {
+        throw new Error("Test error");
       });
-      return { result: 'no error' };
+      return { result: "no error" };
     } catch (error) {
-      return { result: `caught: ${error instanceof Error ? error.message : String(error)}` };
+      return {
+        result: `caught: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
   }
 }
@@ -47,11 +57,11 @@ test("步骤重试机制", async () => {
   const instance = await workflow.create();
 
   // 等待完成（包括重试）
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const status = await instance.status();
-  expect(status.status).toBe('complete');
-  expect(status.output).toBe('success');
+  expect(status.status).toBe("complete");
+  expect(status.output).toBe("success");
 });
 
 test("非重试错误", async () => {
@@ -59,11 +69,11 @@ test("非重试错误", async () => {
   const instance = await workflow.create();
 
   // 等待失败
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   const status = await instance.status();
-  expect(status.status).toBe('errored');
-  expect(status.error).toBe('Non-retryable error');
+  expect(status.status).toBe("errored");
+  expect(status.error).toBe("Non-retryable error");
 });
 
 test("工作流中使用 try catch 捕获错误", async () => {
@@ -71,9 +81,9 @@ test("工作流中使用 try catch 捕获错误", async () => {
   const instance = await workflow.create();
 
   // 等待完成
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   const status = await instance.status();
-  expect(status.status).toBe('complete');
-  expect(status.output.result).toBe('caught: Test error');
+  expect(status.status).toBe("complete");
+  expect(status.output.result).toBe("caught: Test error");
 });

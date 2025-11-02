@@ -38,6 +38,7 @@ test("hello world", () => {
 ```
 
 ### Key Conventions
+
 - ES modules with `.js` extensions in imports (TypeScript compilation target)
 - Duration parsing: `'1 hour'`, `'30 seconds'`, `'5 minutes'` (not ISO strings)
 - Instance IDs are auto-generated if not provided
@@ -45,6 +46,7 @@ test("hello world", () => {
 - All async operations are Promise-based
 
 ### Development Workflow
+
 - `bun run example.ts` - Basic usage example
 - `bun run advanced-example.ts` - Pause/resume and event handling demo
 - `bun test` - Run comprehensive test suite

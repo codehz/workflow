@@ -6,7 +6,9 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "repositoryUrl": "https://github.com/codehz/workflow",
   "exports": {
     ".": {
@@ -20,12 +22,26 @@
     "advanced": "bun run examples/advanced-example.ts",
     "recover-example": "bun run examples/recover-example.ts",
     "test": "bun test",
-    "release": "bun run scripts/release.ts"
+    "release": "bun run scripts/release.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
+    "organize-imports-cli": "^0.10.0",
+    "prettier": "^3.6.2"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "organize-imports-cli",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

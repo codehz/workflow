@@ -37,24 +37,24 @@ bun install
 ### 定义工作流
 
 ```typescript
-import { WorkflowEntrypoint } from '@codehz/workflow';
-import type { WorkflowEvent, WorkflowStep } from '@codehz/workflow';
+import { WorkflowEntrypoint } from "@codehz/workflow";
+import type { WorkflowEvent, WorkflowStep } from "@codehz/workflow";
 
 class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
     // 执行步骤
-    const result = await step.do('step-name', async () => {
+    const result = await step.do("step-name", async () => {
       // 你的逻辑
-      return 'result';
+      return "result";
     });
 
     // 睡眠
-    await step.sleep('wait', '5 seconds');
+    await step.sleep("wait", "5 seconds");
 
     // 等待事件
-    const eventData = await step.waitForEvent('wait-input', {
-      type: 'user-input',
-      timeout: '1 hour'
+    const eventData = await step.waitForEvent("wait-input", {
+      type: "user-input",
+      timeout: "1 hour",
     });
 
     return result;
@@ -65,7 +65,7 @@ class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 ### 创建和运行工作流实例
 
 ```typescript
-import { LocalWorkflow, InMemoryWorkflowStorage } from '@codehz/workflow';
+import { LocalWorkflow, InMemoryWorkflowStorage } from "@codehz/workflow";
 
 // 创建存储（默认内存）
 const storage = new InMemoryWorkflowStorage();
@@ -75,8 +75,10 @@ const workflow = new LocalWorkflow(MyWorkflow, env, storage);
 
 // 创建实例
 const instance = await workflow.create({
-  id: 'my-instance',
-  params: { /* 参数 */ }
+  id: "my-instance",
+  params: {
+    /* 参数 */
+  },
 });
 
 // 检查状态
@@ -88,8 +90,8 @@ await instance.resume();
 
 // 发送事件
 await instance.sendEvent({
-  type: 'user-input',
-  payload: { data: 'value' }
+  type: "user-input",
+  payload: { data: "value" },
 });
 ```
 
@@ -115,6 +117,7 @@ interface WorkflowStorage {
 ### WorkflowStep
 
 提供步骤执行方法：
+
 - `do(name, callback)`: 执行步骤
 - `sleep(name, duration)`: 睡眠
 - `sleepUntil(name, timestamp)`: 睡眠到指定时间
@@ -123,6 +126,7 @@ interface WorkflowStorage {
 ### WorkflowInstance
 
 实例管理：
+
 - `pause()`: 暂停
 - `resume()`: 恢复
 - `terminate()`: 终止
@@ -133,6 +137,7 @@ interface WorkflowStorage {
 ### LocalWorkflow
 
 工作流管理：
+
 - `create(options)`: 创建实例
 - `createBatch(batch)`: 批量创建
 - `get(id)`: 获取实例

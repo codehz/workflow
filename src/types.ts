@@ -26,19 +26,19 @@ export type InstanceStatus =
   | 'waitingForPause'
   | 'unknown';
 
-export interface InstanceStatusDetail {
+export interface InstanceStatusDetail<Params = any> {
   status: InstanceStatus;
   error?: string;
   output?: any;
   currentStep?: string;
   stepState?: any;
   // 保存触发此实例的事件，便于恢复和重启
-  event?: WorkflowEvent<any>;
+  event?: WorkflowEvent<Params>;
 }
 
-export interface WorkflowInstanceCreateOptions {
+export interface WorkflowInstanceCreateOptions<Params = any> {
   id?: string;
-  params?: any;
+  params?: Params;
 }
 
 export interface WorkflowStep {
@@ -49,20 +49,20 @@ export interface WorkflowStep {
   waitForEvent(name: string, options: { type: string; timeout?: string | number }): Promise<any>;
 }
 
-export interface WorkflowInstance {
+export interface WorkflowInstance<Params = any> {
   id: string;
   pause(): Promise<void>;
   resume(): Promise<void>;
   terminate(): Promise<void>;
   restart(): Promise<void>;
-  status(): Promise<InstanceStatusDetail>;
+  status(): Promise<InstanceStatusDetail<Params>>;
   sendEvent(options: { type: string; payload?: any }): Promise<void>;
 }
 
-export interface Workflow {
-  create(options?: WorkflowInstanceCreateOptions): Promise<WorkflowInstance>;
-  createBatch(batch: WorkflowInstanceCreateOptions[]): Promise<WorkflowInstance[]>;
-  get(id: string): Promise<WorkflowInstance>;
+export interface Workflow<Params = any> {
+  create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>>;
+  createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params>[]>;
+  get(id: string): Promise<WorkflowInstance<Params>>;
 }
 
 export abstract class WorkflowEntrypoint<Env = any, Params = any> {

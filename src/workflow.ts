@@ -115,11 +115,11 @@ function parseDuration(duration: string): number {
   }
 }
 
-class LocalWorkflowInstance<Env> implements WorkflowInstance {
+class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Params> {
   constructor(
     public id: string,
     private storage: WorkflowStorage,
-    private executor: WorkflowExecutor<Env>
+    private executor: WorkflowExecutor<Env, Params>
   ) {}
 
   async pause(): Promise<void> {
@@ -146,7 +146,7 @@ class LocalWorkflowInstance<Env> implements WorkflowInstance {
     await this.executor.restartInstance(this.id);
   }
 
-  async status(): Promise<InstanceStatusDetail> {
+  async status(): Promise<InstanceStatusDetail<Params>> {
     const state = await this.storage.loadInstance(this.id);
     return state || { status: 'unknown' };
   }
@@ -156,25 +156,25 @@ class LocalWorkflowInstance<Env> implements WorkflowInstance {
   }
 }
 
-class WorkflowExecutor<Env> {
+class WorkflowExecutor<Env, Params = any> {
   private running = new Map<string, Promise<void>>();
   private eventListeners = new Map<string, Map<string, (payload: any) => void>>();
 
   constructor(
-    private workflowClass: new (env: Env) => WorkflowEntrypoint<Env>,
+    private workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params>,
     private env: Env,
     private storage: WorkflowStorage
   ) {}
 
-  async createInstance(options: WorkflowInstanceCreateOptions): Promise<WorkflowInstance> {
+  async createInstance(options: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>> {
     const id = options.id || generateId();
-    const event: WorkflowEvent = {
-      payload: options.params || {},
+    const event: WorkflowEvent<Params> = {
+      payload: options.params || {} as Params,
       timestamp: new Date(),
       instanceId: id
     };
 
-    const initialState: InstanceStatusDetail = {
+    const initialState: InstanceStatusDetail<Params> = {
       status: 'queued',
       output: undefined,
       // 将触发事件保存到状态中，便于恢复/重启
@@ -182,12 +182,12 @@ class WorkflowExecutor<Env> {
     };
     await this.storage.saveInstance(id, initialState);
 
-    const instance = new LocalWorkflowInstance<Env>(id, this.storage, this);
+    const instance = new LocalWorkflowInstance<Env, Params>(id, this.storage, this);
     this.startInstance(id, event);
     return instance;
   }
 
-  private async startInstance(instanceId: string, event: WorkflowEvent): Promise<void> {
+  private async startInstance(instanceId: string, event: WorkflowEvent<Params>): Promise<void> {
     const workflow = new this.workflowClass(this.env);
     const step = new LocalWorkflowStep(instanceId, this.storage, async (type) => {
       return new Promise((resolve) => {
@@ -265,10 +265,10 @@ class WorkflowExecutor<Env> {
     }
   }
 
-  async getInstance(id: string): Promise<WorkflowInstance> {
+  async getInstance(id: string): Promise<WorkflowInstance<Params>> {
     const state = await this.storage.loadInstance(id);
     if (!state) throw new Error('Instance not found');
-    return new LocalWorkflowInstance<Env>(id, this.storage, this);
+    return new LocalWorkflowInstance<Env, Params>(id, this.storage, this);
   }
 }
 
@@ -276,26 +276,26 @@ function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
 }
 
-export class LocalWorkflow<Env> implements Workflow {
-  private executor: WorkflowExecutor<Env>;
+export class LocalWorkflow<Env, Params = any> implements Workflow<Params> {
+  private executor: WorkflowExecutor<Env, Params>;
 
   constructor(
-    workflowClass: new (env: Env) => WorkflowEntrypoint<Env>,
+    workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params>,
     env: Env = {} as Env,
     storage: WorkflowStorage = new InMemoryWorkflowStorage()
   ) {
-    this.executor = new WorkflowExecutor<Env>(workflowClass, env, storage);
+    this.executor = new WorkflowExecutor<Env, Params>(workflowClass, env, storage);
   }
 
-  async create(options?: WorkflowInstanceCreateOptions): Promise<WorkflowInstance> {
+  async create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>> {
     return this.executor.createInstance(options || {});
   }
 
-  async createBatch(batch: WorkflowInstanceCreateOptions[]): Promise<WorkflowInstance[]> {
+  async createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params>[]> {
     return Promise.all(batch.map(options => this.create(options)));
   }
 
-  async get(id: string): Promise<WorkflowInstance> {
+  async get(id: string): Promise<WorkflowInstance<Params>> {
     return this.executor.getInstance(id);
   }
 }

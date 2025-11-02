@@ -30,7 +30,7 @@ class MyWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
 async function main() {
   // 创建工作流实例，使用内存存储
   const storage = new InMemoryWorkflowStorage();
-  const workflow = new LocalWorkflow(MyWorkflow, {}, storage);
+  const workflow = new LocalWorkflow<{}, { message: string }>(MyWorkflow, {}, storage);
 
   // 创建工作流实例
   const instance = await workflow.create({

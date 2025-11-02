@@ -1,6 +1,7 @@
 // storage.ts - 存储接口和内存实现
 
 import type { InstanceStatusDetail, StepState, InstanceStatus, InstanceSummary } from './types.js';
+import { DISABLED_PROMISE } from './types.js';
 
 export interface WorkflowStorage {
   saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
@@ -61,30 +62,30 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
 
 export class DisabledWorkflowStorage implements WorkflowStorage {
   async saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 
   async updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 
   async updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 
   async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 
   async deleteInstance(instanceId: string): Promise<void> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 
   async listInstanceSummaries(): Promise<InstanceSummary[]> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 
   async listActiveInstances(): Promise<string[]> {
-    return new Promise(() => {}); // 无限等待，模拟系统关闭
+    return DISABLED_PROMISE;
   }
 }

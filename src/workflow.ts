@@ -9,7 +9,7 @@ import type {
   WorkflowInstanceCreateOptions,
   WorkflowStepConfig
 } from './types.js';
-import { WorkflowEntrypoint, NonRetryableError } from './types.js';
+import { WorkflowEntrypoint, NonRetryableError, DISABLED_PROMISE } from './types.js';
 import type { WorkflowStorage } from './storage.js';
 import { InMemoryWorkflowStorage, DisabledWorkflowStorage } from './storage.js';
 
@@ -61,7 +61,7 @@ class LocalWorkflowStep<EventMap extends Record<string, any> = Record<string, an
 
     let attempts = state.stepStates[name]!.retries || 0;
 
-    if (this.isShutdown()) return new Promise<T>(() => {});
+    if (this.isShutdown()) return DISABLED_PROMISE;
 
     while (attempts <= maxRetries) {
       try {
@@ -116,7 +116,7 @@ class LocalWorkflowStep<EventMap extends Record<string, any> = Record<string, an
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
-      if (this.isShutdown()) return new Promise<void>(() => {});
+      if (this.isShutdown()) return DISABLED_PROMISE;
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
@@ -152,7 +152,7 @@ class LocalWorkflowStep<EventMap extends Record<string, any> = Record<string, an
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
-      if (this.isShutdown()) return new Promise<void>(() => {});
+      if (this.isShutdown()) return DISABLED_PROMISE;
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
@@ -183,7 +183,7 @@ class LocalWorkflowStep<EventMap extends Record<string, any> = Record<string, an
     // 保存 waiting 状态
     await this.storage.updateStepState(this.instanceId, name, { status: 'waitingForEvent', waitEventType: eventType, waitTimeout: timeoutMs });
 
-    if (this.isShutdown()) return new Promise<any>(() => {});
+    if (this.isShutdown()) return DISABLED_PROMISE;
 
     try {
       const result = await Promise.race([

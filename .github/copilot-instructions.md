@@ -27,6 +27,8 @@ Default to using Bun instead of Node.js.
 Use `bunx tsc --noEmit` to type-check.
 Use `bun test` to run tests.
 
+To filter tests, use `bun test --test-name-pattern <filter>`.
+
 ```ts
 import { test, expect } from "bun:test";
 

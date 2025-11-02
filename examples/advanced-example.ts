@@ -1,11 +1,8 @@
 // advanced-example.ts - 高级示例：展示恢复和事件功能
 
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
-import {
-  InMemoryWorkflowStorage,
-  LocalWorkflow,
-  WorkflowEntrypoint,
-} from "../src/index.js";
+import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
+import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 class AdvancedWorkflow extends WorkflowEntrypoint<{}, { task: string }> {
   async run(event: WorkflowEvent<{ task: string }>, step: WorkflowStep) {
@@ -53,7 +50,7 @@ async function main() {
   const workflow = new LocalWorkflow<{}, { task: string }>(
     AdvancedWorkflow,
     {},
-    storage
+    storage,
   );
 
   // 创建实例

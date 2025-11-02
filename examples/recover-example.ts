@@ -1,11 +1,8 @@
 // recover-example.ts - 自动恢复示例
 
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
-import {
-  InMemoryWorkflowStorage,
-  LocalWorkflow,
-  WorkflowEntrypoint,
-} from "../src/index.js";
+import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
+import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 // 定义工作流类
 class RecoverableWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
@@ -42,7 +39,7 @@ async function main() {
   const workflow1 = new LocalWorkflow<{}, { value: number }>(
     RecoverableWorkflow,
     {},
-    storage
+    storage,
   );
 
   const instance1 = await workflow1.create({
@@ -71,7 +68,7 @@ async function main() {
   const workflow2 = new LocalWorkflow<{}, { value: number }>(
     RecoverableWorkflow,
     {},
-    storage
+    storage,
   );
 
   // 自动恢复所有未完成的工作流

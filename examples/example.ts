@@ -1,11 +1,8 @@
 // example.ts - 使用示例
 
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
-import {
-  InMemoryWorkflowStorage,
-  LocalWorkflow,
-  WorkflowEntrypoint,
-} from "../src/index.js";
+import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
+import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 // 定义工作流类
 class MyWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
@@ -37,7 +34,7 @@ async function main() {
   const workflow = new LocalWorkflow<{}, { message: string }>(
     MyWorkflow,
     {},
-    storage
+    storage,
   );
 
   // 创建工作流实例

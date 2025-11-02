@@ -14,7 +14,10 @@
   "files": [
     "dist"
   ],
-  "repository": "https://github.com/codehz/workflow",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codehz/workflow.git"
+  },
   "scripts": {
     "dist": "bun run scripts/dist.ts",
     "example": "bun run examples/example.ts",

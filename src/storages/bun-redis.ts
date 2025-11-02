@@ -7,21 +7,46 @@ import type {
   WorkflowStorage,
 } from "../types.js";
 
+/**
+ * 时间戳乘数，用于计算 Redis ZSet 的分数。
+ * 将状态分数与时间戳结合，确保排序正确。
+ */
 const TIME_MULTIPLIER = 1000000000000000; // 1e15
+
+/**
+ * 状态分数映射，用于 Redis ZSet 排序。
+ * terminated: 0, complete: 1, active: 2（其他状态默认为活跃）。
+ */
 const STATUS_SCORES = {
   terminated: 0,
   complete: 1,
-  // 其他状态都是活跃的，用2
   active: 2,
 } as const;
 
+/**
+ * 根据状态字符串获取分数。
+ * @param status 实例状态
+ * @returns 对应的分数
+ */
 function getStatusScore(status: string): number {
   if (status === "terminated") return STATUS_SCORES.terminated;
   if (status === "complete") return STATUS_SCORES.complete;
   return STATUS_SCORES.active;
 }
 
+/**
+ * 基于 Bun 的 Redis 工作流存储实现。
+ * 使用 Redis 存储工作流实例的状态、步骤、错误、输出和事件。
+ * 支持实例的保存、加载、更新、删除和列表查询。
+ */
 export class BunRedisWorkflowStorage implements WorkflowStorage {
+  /**
+   * 构造函数。
+   * @param client Redis 客户端实例
+   * @param prefix Redis 键的前缀
+   * @param serialize 序列化函数，默认使用 JSON.stringify
+   * @param deserialize 反序列化函数，默认使用 JSON.parse
+   */
   constructor(
     private client: RedisClient,
     private prefix: string,
@@ -29,34 +54,73 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     private deserialize: (str: string) => any = JSON.parse,
   ) {}
 
+  /**
+   * 获取实例键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
   private getInstanceKey(instanceId: string): string {
     return `${this.prefix}:instance:${instanceId}`;
   }
 
+  /**
+   * 获取状态键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
   private getStatusKey(instanceId: string): string {
     return `${this.getInstanceKey(instanceId)}:status`;
   }
 
+  /**
+   * 获取步骤哈希键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
   private getStepsHashKey(instanceId: string): string {
     return `${this.getInstanceKey(instanceId)}:steps`;
   }
 
+  /**
+   * 获取错误键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
   private getErrorKey(instanceId: string): string {
     return `${this.getInstanceKey(instanceId)}:error`;
   }
 
+  /**
+   * 获取输出键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
   private getOutputKey(instanceId: string): string {
     return `${this.getInstanceKey(instanceId)}:output`;
   }
 
+  /**
+   * 获取事件键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
   private getEventKey(instanceId: string): string {
     return `${this.getInstanceKey(instanceId)}:event`;
   }
 
+  /**
+   * 获取实例 ZSet 键。
+   * @returns Redis 键
+   */
   private getInstancesZSetKey(): string {
     return `${this.prefix}:instances`;
   }
 
+  /**
+   * 保存实例状态到 Redis。
+   * @param instanceId 实例 ID
+   * @param state 实例状态详情
+   */
   async saveInstance(
     instanceId: string,
     state: InstanceStatusDetail,
@@ -102,13 +166,60 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
 
     await Promise.all(operations);
 
-    // 计算score并添加到zset（依赖event）
+    // 计算分数并添加到 ZSet（依赖事件）
     const statusScore = getStatusScore(state.status);
     const timestamp = state.event.timestamp.getTime();
     const score = statusScore * TIME_MULTIPLIER + timestamp;
     await this.client.zadd(this.getInstancesZSetKey(), score, instanceId);
   }
 
+  /**
+   * 从 Redis 加载实例状态。
+   * @param instanceId 实例 ID
+   * @returns 实例状态详情，如果不存在则返回 null
+   */
+  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
+    const statusStr = await this.client.get(this.getStatusKey(instanceId));
+    if (!statusStr) return null;
+
+    const status = this.deserialize(statusStr);
+    const stepsHash = await this.client.hgetall(
+      this.getStepsHashKey(instanceId),
+    );
+    const stepStates: Record<string, StepState> = {};
+    for (const [k, v] of Object.entries(stepsHash)) {
+      stepStates[k] = this.deserialize(v as string);
+    }
+
+    // 加载其他字段
+    const [errorStr, outputStr, eventStr] = await Promise.all([
+      this.client.get(this.getErrorKey(instanceId)),
+      this.client.get(this.getOutputKey(instanceId)),
+      this.client.get(this.getEventKey(instanceId)),
+    ]);
+
+    if (!eventStr) {
+      // 无效实例，没有事件数据，丢弃
+      return null;
+    }
+
+    const result: InstanceStatusDetail = {
+      status,
+      stepStates,
+      event: this.deserialize(eventStr),
+    };
+
+    if (errorStr) result.error = this.deserialize(errorStr);
+    if (outputStr) result.output = this.deserialize(outputStr);
+
+    return result;
+  }
+
+  /**
+   * 更新实例状态。
+   * @param instanceId 实例 ID
+   * @param updates 要更新的字段
+   */
   async updateInstance(
     instanceId: string,
     updates: Partial<InstanceStatusDetail>,
@@ -165,7 +276,7 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
 
     await Promise.all(operations);
 
-    // 如果更新了status，需要更新zset score
+    // 如果更新了状态，需要更新 ZSet 分数
     if (updates.status !== undefined) {
       const eventStr = await this.client.get(this.getEventKey(instanceId));
       if (eventStr) {
@@ -178,6 +289,12 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     }
   }
 
+  /**
+   * 更新步骤状态。
+   * @param instanceId 实例 ID
+   * @param stepName 步骤名称
+   * @param stepState 步骤状态
+   */
   async updateStepState(
     instanceId: string,
     stepName: string,
@@ -190,43 +307,10 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     );
   }
 
-  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
-    const statusStr = await this.client.get(this.getStatusKey(instanceId));
-    if (!statusStr) return null;
-
-    const status = this.deserialize(statusStr);
-    const stepsHash = await this.client.hgetall(
-      this.getStepsHashKey(instanceId),
-    );
-    const stepStates: Record<string, StepState> = {};
-    for (const [k, v] of Object.entries(stepsHash)) {
-      stepStates[k] = this.deserialize(v as string);
-    }
-
-    // 加载其他字段
-    const [errorStr, outputStr, eventStr] = await Promise.all([
-      this.client.get(this.getErrorKey(instanceId)),
-      this.client.get(this.getOutputKey(instanceId)),
-      this.client.get(this.getEventKey(instanceId)),
-    ]);
-
-    if (!eventStr) {
-      // 无效实例，没有事件数据，丢弃
-      return null;
-    }
-
-    const result: InstanceStatusDetail = {
-      status,
-      stepStates,
-      event: this.deserialize(eventStr),
-    };
-
-    if (errorStr) result.error = this.deserialize(errorStr);
-    if (outputStr) result.output = this.deserialize(outputStr);
-
-    return result;
-  }
-
+  /**
+   * 删除实例。
+   * @param instanceId 实例 ID
+   */
   async deleteInstance(instanceId: string): Promise<void> {
     await Promise.all([
       this.client.del(
@@ -240,8 +324,12 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     ]);
   }
 
+  /**
+   * 列出所有实例摘要。
+   * @returns 实例摘要列表
+   */
   async listInstanceSummaries(): Promise<InstanceSummary[]> {
-    // 获取所有实例ID（按score排序，从低到高）
+    // 获取所有实例 ID（按分数排序，从低到高）
     const instanceIds = await this.client.zrange(
       this.getInstancesZSetKey(),
       0,
@@ -263,8 +351,12 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     return summaries;
   }
 
+  /**
+   * 列出所有活跃实例 ID。
+   * @returns 活跃实例 ID 列表
+   */
   async listActiveInstances(): Promise<string[]> {
-    // 获取所有活跃实例（score >= 2*TIME_MULTIPLIER）
+    // 获取所有活跃实例（分数 >= 2 * TIME_MULTIPLIER）
     const minScore = STATUS_SCORES.active * TIME_MULTIPLIER;
     return await this.client.zrangebyscore(
       this.getInstancesZSetKey(),

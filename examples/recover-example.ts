@@ -51,6 +51,11 @@ async function main() {
   let status = await instance1.status();
   console.log('Status after 500ms:', status.status);
 
+  // 模拟应用关闭（shutdown）
+  console.log('\n=== Simulating app shutdown ===');
+  await workflow1.shutdown();
+  console.log('Workflow shutdown completed');
+
   // 模拟应用重启
   console.log('\n=== Simulating app restart ===');
 

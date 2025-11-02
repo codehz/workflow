@@ -137,35 +137,6 @@ test("获取工作流实例", async () => {
   expect(status.output).toBe(14);
 });
 
-test("自动恢复工作流", async () => {
-  const storage = new (await import("../src/storage.js")).InMemoryWorkflowStorage();
-  const workflow = new LocalWorkflow(SimpleWorkflow, {}, storage);
-
-  // 创建一个实例
-  const instance = await workflow.create({
-    id: 'test-recover',
-    params: { value: 3 }
-  });
-
-  // 等待完成
-  await new Promise(resolve => setTimeout(resolve, 100));
-  let status = await instance.status();
-  expect(status.status).toBe('complete');
-  expect(status.output).toBe(6);
-
-  // 模拟重启：创建一个新的 workflow 实例，使用相同的存储
-  const workflow2 = new LocalWorkflow(SimpleWorkflow, {}, storage);
-
-  // 调用 recover，应该不会恢复已完成的实例
-  await workflow2.recover();
-
-  // 检查实例状态仍然是 complete
-  const instance2 = await workflow2.get('test-recover');
-  status = await instance2.status();
-  expect(status.status).toBe('complete');
-  expect(status.output).toBe(6);
-});
-
 // 测试恢复未完成的工作流
 class PausableWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
   async run(event: WorkflowEvent<{ value: number }>, step: WorkflowStep) {

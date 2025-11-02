@@ -29,4 +29,20 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
   }
 }
 
-// 可以扩展其他实现，如文件存储、数据库存储等
+export class DisabledWorkflowStorage implements WorkflowStorage {
+  async saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+
+  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+
+  async deleteInstance(instanceId: string): Promise<void> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+
+  async listInstances(): Promise<string[]> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+}

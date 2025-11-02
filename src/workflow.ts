@@ -11,13 +11,14 @@ import type {
 } from './types.js';
 import { WorkflowEntrypoint, NonRetryableError } from './types.js';
 import type { WorkflowStorage } from './storage.js';
-import { InMemoryWorkflowStorage } from './storage.js';
+import { InMemoryWorkflowStorage, DisabledWorkflowStorage } from './storage.js';
 
 class LocalWorkflowStep implements WorkflowStep {
   constructor(
     private instanceId: string,
     private storage: WorkflowStorage,
-    private onEvent: (type: string) => Promise<any>
+    private onEvent: (type: string) => Promise<any>,
+    private isShutdown: () => boolean
   ) {}
 
   async do<T>(name: string, callback: () => Promise<T>): Promise<T>;
@@ -60,6 +61,8 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     let attempts = state.stepStates[name]!.retries || 0;
+
+    if (this.isShutdown()) return new Promise<T>(() => {});
 
     while (attempts <= maxRetries) {
       try {
@@ -118,6 +121,7 @@ class LocalWorkflowStep implements WorkflowStep {
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
+      if (this.isShutdown()) return new Promise<void>(() => {});
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
@@ -155,6 +159,7 @@ class LocalWorkflowStep implements WorkflowStep {
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
+      if (this.isShutdown()) return new Promise<void>(() => {});
       await new Promise(resolve => setTimeout(resolve, remaining));
     }
 
@@ -185,6 +190,8 @@ class LocalWorkflowStep implements WorkflowStep {
     // 保存 waiting 状态
     state.stepStates[name] = { status: 'waitingForEvent', waitEventType: options.type, waitTimeout: timeoutMs };
     await this.storage.saveInstance(this.instanceId, state);
+
+    if (this.isShutdown()) return new Promise<any>(() => {});
 
     try {
       const result = await Promise.race([
@@ -224,9 +231,12 @@ function parseDuration(duration: string): number {
 class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Params> {
   constructor(
     public id: string,
-    private storage: WorkflowStorage,
     private executor: WorkflowExecutor<Env, Params>
   ) {}
+
+  get storage(): WorkflowStorage {
+    return this.executor.storage;
+  }
 
   async pause(): Promise<void> {
     const state = await this.storage.loadInstance(this.id);
@@ -265,12 +275,17 @@ class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Param
 class WorkflowExecutor<Env, Params = any> {
   private running = new Map<string, Promise<void>>();
   private eventListeners = new Map<string, Map<string, (payload: any) => void>>();
+  private isShutdown = false;
 
   constructor(
     private workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params>,
     private env: Env,
-    private storage: WorkflowStorage
+    private _storage: WorkflowStorage
   ) {}
+
+  get storage(): WorkflowStorage {
+    return this._storage;
+  }
 
   async createInstance(options: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>> {
     const id = options.id || generateId();
@@ -288,7 +303,7 @@ class WorkflowExecutor<Env, Params = any> {
     };
     await this.storage.saveInstance(id, initialState);
 
-    const instance = new LocalWorkflowInstance<Env, Params>(id, this.storage, this);
+    const instance = new LocalWorkflowInstance<Env, Params>(id, this);
     this.startInstance(id, event);
     return instance;
   }
@@ -302,7 +317,7 @@ class WorkflowExecutor<Env, Params = any> {
         }
         this.eventListeners.get(instanceId)!.set(type, resolve);
       });
-    });
+    }, () => this.isShutdown);
 
     const runPromise = (async () => {
       try {
@@ -403,7 +418,12 @@ class WorkflowExecutor<Env, Params = any> {
   async getInstance(id: string): Promise<WorkflowInstance<Params>> {
     const state = await this.storage.loadInstance(id);
     if (!state) throw new Error('Instance not found');
-    return new LocalWorkflowInstance<Env, Params>(id, this.storage, this);
+    return new LocalWorkflowInstance<Env, Params>(id, this);
+  }
+
+  async shutdown(): Promise<void> {
+    this.isShutdown = true;
+    this._storage = new DisabledWorkflowStorage();
   }
 }
 
@@ -436,5 +456,9 @@ export class LocalWorkflow<Env, Params = any> implements Workflow<Params> {
 
   async recover(): Promise<void> {
     return this.executor.recoverAll();
+  }
+
+  async shutdown(): Promise<void> {
+    return this.executor.shutdown();
   }
 }

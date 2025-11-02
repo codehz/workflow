@@ -46,7 +46,11 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
   }
 
   async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
-    return this.storage.get(instanceId) || null;
+    const instance = this.storage.get(instanceId);
+    if (!instance || !instance.event) {
+      return null;
+    }
+    return instance;
   }
 
   async deleteInstance(instanceId: string): Promise<void> {

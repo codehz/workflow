@@ -20,9 +20,16 @@ async function isRedisAvailable(): Promise<boolean> {
 test("内存存储功能", async () => {
   const storage = new InMemoryWorkflowStorage();
 
+  const event = {
+    payload: {},
+    timestamp: new Date("2025-01-01T00:00:00Z"),
+    instanceId: "test-id",
+  };
+
   // 保存实例
   await storage.saveInstance("test-id", {
     status: "running",
+    event,
     stepStates: {},
   });
 
@@ -31,6 +38,8 @@ test("内存存储功能", async () => {
   expect(loaded).not.toBeNull();
   expect(loaded!.status).toBe("running");
   expect(loaded!.stepStates).toEqual({});
+  expect(loaded!.event.instanceId).toBe("test-id");
+  expect(loaded!.event.payload).toEqual({});
 
   // 更新实例
   await storage.updateInstance("test-id", { status: "complete" });
@@ -81,9 +90,16 @@ test("Bun Redis存储功能", async () => {
     await redis.del(...keys);
   }
 
+  const event = {
+    payload: {},
+    timestamp: new Date("2025-01-01T00:00:00Z"),
+    instanceId: "test-id",
+  };
+
   // 保存实例
   await storage.saveInstance("test-id", {
     status: "running",
+    event,
     stepStates: {},
   });
 
@@ -92,6 +108,8 @@ test("Bun Redis存储功能", async () => {
   expect(loaded).not.toBeNull();
   expect(loaded!.status).toBe("running");
   expect(loaded!.stepStates).toEqual({});
+  expect(loaded!.event.instanceId).toBe("test-id");
+  expect(loaded!.event.payload).toEqual({});
 
   // 更新实例
   await storage.updateInstance("test-id", { status: "complete" });

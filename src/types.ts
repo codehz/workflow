@@ -44,7 +44,7 @@ export interface InstanceStatusDetail<Params = any> {
   error?: string;
   output?: any;
   // 保存触发此实例的事件，便于恢复和重启
-  event?: WorkflowEvent<Params>;
+  event: WorkflowEvent<Params>;
   // 保存所有步骤的状态，便于恢复
   stepStates?: Record<string, StepState>;
 }

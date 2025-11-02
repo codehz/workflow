@@ -169,14 +169,19 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       this.client.get(this.getEventKey(instanceId)),
     ]);
 
+    if (!eventStr) {
+      // 无效实例，没有事件数据，丢弃
+      return null;
+    }
+
     const result: InstanceStatusDetail = {
       status,
       stepStates,
+      event: this.deserialize(eventStr),
     };
 
     if (errorStr) result.error = this.deserialize(errorStr);
     if (outputStr) result.output = this.deserialize(outputStr);
-    if (eventStr) result.event = this.deserialize(eventStr);
 
     return result;
   }

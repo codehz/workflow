@@ -329,7 +329,8 @@ class LocalWorkflowInstance<
 
   async status(): Promise<InstanceStatusDetail<Params>> {
     const state = await this.storage.loadInstance(this.id);
-    return state || { status: "unknown" };
+    if (!state) throw new Error(`Instance ${this.id} not found`);
+    return state;
   }
 
   async sendEvent<K extends keyof EventMap>(options: {

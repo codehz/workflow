@@ -18,7 +18,7 @@ bun install
 
 ## 版本管理
 
-本项目使用 [semantic-release](https://github.com/semantic-release/semantic-release) 自动生成版本号和变更日志。
+本项目使用自定义发布脚本进行版本管理。
 
 ### 提交规范
 
@@ -31,23 +31,6 @@ bun install
 - `refactor:` 重构
 - `test:` 测试相关
 - `chore:` 构建过程或辅助工具的变动
-
-### 自动发布
-
-当推送到 `main` 分支时，GitHub Actions 会自动运行测试、构建和发布流程：
-
-1. 分析提交消息确定版本号递增
-2. 生成变更日志 (CHANGELOG.md)
-3. 创建Git标签
-4. 发布到GitHub Releases
-
-### 手动发布
-
-如需手动触发发布：
-
-```bash
-bun run release
-```
 
 ## 使用
 

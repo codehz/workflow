@@ -7,6 +7,20 @@ import type {
   WorkflowStorage,
 } from "../types.js";
 
+const TIME_MULTIPLIER = 1000000000000000; // 1e15
+const STATUS_SCORES = {
+  terminated: 0,
+  complete: 1,
+  // 其他状态都是活跃的，用2
+  active: 2,
+} as const;
+
+function getStatusScore(status: string): number {
+  if (status === "terminated") return STATUS_SCORES.terminated;
+  if (status === "complete") return STATUS_SCORES.complete;
+  return STATUS_SCORES.active;
+}
+
 export class BunRedisWorkflowStorage implements WorkflowStorage {
   constructor(
     private client: RedisClient,
@@ -39,7 +53,7 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     return `${this.getInstanceKey(instanceId)}:event`;
   }
 
-  private getInstancesSetKey(): string {
+  private getInstancesZSetKey(): string {
     return `${this.prefix}:instances`;
   }
 
@@ -88,8 +102,11 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       await this.client.del(this.getEventKey(instanceId));
     }
 
-    // 添加到instances set
-    await this.client.sadd(this.getInstancesSetKey(), instanceId);
+    // 计算score并添加到zset
+    const statusScore = getStatusScore(state.status);
+    const timestamp = state.event.timestamp.getTime();
+    const score = statusScore * TIME_MULTIPLIER + timestamp;
+    await this.client.zadd(this.getInstancesZSetKey(), score, instanceId);
   }
 
   async updateInstance(
@@ -101,6 +118,17 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
         this.getStatusKey(instanceId),
         this.serialize(updates.status),
       );
+
+      // 更新zset中的score
+      // 需要获取创建时间来重新计算score
+      const eventStr = await this.client.get(this.getEventKey(instanceId));
+      if (eventStr) {
+        const event = this.deserialize(eventStr);
+        const statusScore = getStatusScore(updates.status);
+        const timestamp = new Date(event.timestamp).getTime();
+        const score = statusScore * TIME_MULTIPLIER + timestamp;
+        await this.client.zadd(this.getInstancesZSetKey(), score, instanceId);
+      }
     }
 
     if (updates.stepStates !== undefined) {
@@ -194,11 +222,16 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       this.getOutputKey(instanceId),
       this.getEventKey(instanceId),
     );
-    await this.client.srem(this.getInstancesSetKey(), instanceId);
+    await this.client.zrem(this.getInstancesZSetKey(), instanceId);
   }
 
   async listInstanceSummaries(): Promise<InstanceSummary[]> {
-    const instanceIds = await this.client.smembers(this.getInstancesSetKey());
+    // 获取所有实例ID（按score排序，从低到高）
+    const instanceIds = await this.client.zrange(
+      this.getInstancesZSetKey(),
+      0,
+      -1,
+    );
     const summaries: InstanceSummary[] = [];
     for (const id of instanceIds) {
       const statusStr = await this.client.get(this.getStatusKey(id));
@@ -211,9 +244,12 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
   }
 
   async listActiveInstances(): Promise<string[]> {
-    const summaries = await this.listInstanceSummaries();
-    return summaries
-      .filter((s) => s.status !== "terminated" && s.status !== "complete")
-      .map((s) => s.id);
+    // 获取所有活跃实例（score >= 2*TIME_MULTIPLIER）
+    const minScore = STATUS_SCORES.active * TIME_MULTIPLIER;
+    return await this.client.zrangebyscore(
+      this.getInstancesZSetKey(),
+      minScore,
+      "+inf",
+    );
   }
 }

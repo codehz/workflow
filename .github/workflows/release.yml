@@ -28,7 +28,7 @@ jobs:
         run: bun run dist
 
       - name: Release
-        run: bun run release
+        run: bun run -b release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

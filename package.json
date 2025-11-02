@@ -7,7 +7,7 @@
   "files": [
     "dist"
   ],
-  "repositoryUrl": "https://github.com/codehz/workflow",
+  "repository": "https://github.com/codehz/workflow",
   "scripts": {
     "dist": "bun run scripts/dist.ts",
     "example": "bun run examples/example.ts",

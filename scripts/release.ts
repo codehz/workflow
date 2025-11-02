@@ -59,6 +59,7 @@ const publishPkg = {
   name: pkg.name,
   version: pkg.version,
   license: pkg.license,
+  repository: pkg.repository,
   type: pkg.type,
   main: "./index.js",
   types: "./index.d.ts",

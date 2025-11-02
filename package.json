@@ -2,6 +2,13 @@
   "name": "@codehz/workflow",
   "license": "MIT",
   "version": "0.0.0",
+  "keywords": [
+    "workflow",
+    "bun",
+    "typescript",
+    "async",
+    "automation"
+  ],
   "module": "src/index.ts",
   "type": "module",
   "files": [

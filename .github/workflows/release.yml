@@ -1,9 +1,8 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
 
 jobs:
   release:
@@ -24,11 +23,13 @@ jobs:
       - name: Run tests
         run: bun test
 
-      - name: Build
-        run: bun run dist
-
       - name: Release
-        run: bun run -b release
+        run: bun run release
+
+      - name: Setup NPM Auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish
+        run: bun publish dist

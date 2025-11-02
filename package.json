@@ -14,18 +14,15 @@
     }
   },
   "scripts": {
-    "dist": "bun build src/index.ts --outdir dist --target node && bunx tsc --project tsconfig.build.json && bun run build-package.js",
+    "dist": "bun build src/index.ts --outdir dist --target node && bunx tsc --project tsconfig.build.json",
     "example": "bun run examples/example.ts",
     "advanced": "bun run examples/advanced-example.ts",
     "recover-example": "bun run examples/recover-example.ts",
     "test": "bun test",
-    "release": "bunx --bun semantic-release"
+    "release": "bun run scripts/release.ts"
   },
   "devDependencies": {
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@types/bun": "latest",
-    "semantic-release": "^25.0.1"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"

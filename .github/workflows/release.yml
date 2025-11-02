@@ -28,6 +28,6 @@ jobs:
 
       - name: Publish
         working-directory: dist
-        run: bun publish
+        run: bun publish --access public
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}

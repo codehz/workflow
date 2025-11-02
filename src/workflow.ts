@@ -13,7 +13,7 @@ import { WorkflowEntrypoint, NonRetryableError } from './types.js';
 import type { WorkflowStorage } from './storage.js';
 import { InMemoryWorkflowStorage, DisabledWorkflowStorage } from './storage.js';
 
-class LocalWorkflowStep implements WorkflowStep {
+class LocalWorkflowStep<EventMap extends Record<string, any> = Record<string, any>> implements WorkflowStep<EventMap> {
   constructor(
     private instanceId: string,
     private storage: WorkflowStorage,
@@ -160,7 +160,8 @@ class LocalWorkflowStep implements WorkflowStep {
     await this.storage.updateStepState(this.instanceId, name, { status: 'completed', result: undefined });
   }
 
-  async waitForEvent(name: string, options: { type: string; timeout?: string | number }): Promise<any> {
+  async waitForEvent<K extends keyof EventMap>(name: string, options: { type: K; timeout?: string | number }): Promise<EventMap[K]> {
+    const eventType = options.type as string;
     const timeoutMs = options.timeout ? (typeof options.timeout === 'string' ? parseDuration(options.timeout) : options.timeout) : 24 * 60 * 60 * 1000; // 默认24小时
 
     // 加载当前状态
@@ -180,20 +181,20 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 保存 waiting 状态
-    await this.storage.updateStepState(this.instanceId, name, { status: 'waitingForEvent', waitEventType: options.type, waitTimeout: timeoutMs });
+    await this.storage.updateStepState(this.instanceId, name, { status: 'waitingForEvent', waitEventType: eventType, waitTimeout: timeoutMs });
 
     if (this.isShutdown()) return new Promise<any>(() => {});
 
     try {
       const result = await Promise.race([
-        this.onEvent(options.type),
+        this.onEvent(eventType),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
       ]);
 
       // 保存成功状态
       await this.storage.updateStepState(this.instanceId, name, { status: 'completed', result });
 
-      return result;
+      return result as EventMap[K];
     } catch (error) {
       // 保存失败状态
       await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: getErrorMessage(error) });
@@ -217,7 +218,7 @@ function parseDuration(duration: string): number {
   }
 }
 
-class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Params> {
+class LocalWorkflowInstance<Env, Params = any, EventMap extends Record<string, any> = Record<string, any>> implements WorkflowInstance<Params, EventMap> {
   constructor(
     public id: string,
     private executor: WorkflowExecutor<Env, Params>
@@ -256,18 +257,18 @@ class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Param
     return state || { status: 'unknown' };
   }
 
-  async sendEvent(options: { type: string; payload?: any }): Promise<void> {
-    this.executor.sendEvent(this.id, options.type, options.payload);
+  async sendEvent<K extends keyof EventMap>(options: { type: K; payload?: EventMap[K] }): Promise<void> {
+    this.executor.sendEvent(this.id, options.type as string, options.payload);
   }
 }
 
-class WorkflowExecutor<Env, Params = any> {
+class WorkflowExecutor<Env, Params = any, EventMap extends Record<string, any> = Record<string, any>> {
   private running = new Map<string, Promise<void>>();
   private eventListeners = new Map<string, Map<string, (payload: any) => void>>();
   private isShutdown = false;
 
   constructor(
-    private workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params>,
+    private workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params, EventMap>,
     private env: Env,
     private _storage: WorkflowStorage
   ) {}
@@ -276,7 +277,7 @@ class WorkflowExecutor<Env, Params = any> {
     return this._storage;
   }
 
-  async createInstance(options: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>> {
+  async createInstance(options: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params, EventMap>> {
     const id = options.id || generateId();
     const event: WorkflowEvent<Params> = {
       payload: options.params || {} as Params,
@@ -292,14 +293,14 @@ class WorkflowExecutor<Env, Params = any> {
     };
     await this.storage.saveInstance(id, initialState);
 
-    const instance = new LocalWorkflowInstance<Env, Params>(id, this);
+    const instance = new LocalWorkflowInstance<Env, Params, EventMap>(id, this);
     this.startInstance(id, event);
     return instance;
   }
 
   private async startInstance(instanceId: string, event: WorkflowEvent<Params>): Promise<void> {
     const workflow = new this.workflowClass(this.env);
-    const step = new LocalWorkflowStep(instanceId, this.storage, async (type) => {
+    const step = new LocalWorkflowStep<EventMap>(instanceId, this.storage, async (type) => {
       return new Promise((resolve) => {
         if (!this.eventListeners.has(instanceId)) {
           this.eventListeners.set(instanceId, new Map());
@@ -401,10 +402,10 @@ class WorkflowExecutor<Env, Params = any> {
     }
   }
 
-  async getInstance(id: string): Promise<WorkflowInstance<Params>> {
+  async getInstance(id: string): Promise<WorkflowInstance<Params, EventMap>> {
     const state = await this.storage.loadInstance(id);
     if (!state) throw new Error('Instance not found');
-    return new LocalWorkflowInstance<Env, Params>(id, this);
+    return new LocalWorkflowInstance<Env, Params, EventMap>(id, this);
   }
 
   async shutdown(): Promise<void> {
@@ -424,26 +425,26 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-export class LocalWorkflow<Env, Params = any> implements Workflow<Params> {
-  private executor: WorkflowExecutor<Env, Params>;
+export class LocalWorkflow<Env, Params = any, EventMap extends Record<string, any> = Record<string, any>> implements Workflow<Params, EventMap> {
+  private executor: WorkflowExecutor<Env, Params, EventMap>;
 
   constructor(
-    workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params>,
+    workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params, EventMap>,
     env: Env = {} as Env,
     storage: WorkflowStorage = new InMemoryWorkflowStorage()
   ) {
-    this.executor = new WorkflowExecutor<Env, Params>(workflowClass, env, storage);
+    this.executor = new WorkflowExecutor<Env, Params, EventMap>(workflowClass, env, storage);
   }
 
-  async create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>> {
+  async create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params, EventMap>> {
     return this.executor.createInstance(options || {});
   }
 
-  async createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params>[]> {
+  async createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params, EventMap>[]> {
     return Promise.all(batch.map(options => this.create(options)));
   }
 
-  async get(id: string): Promise<WorkflowInstance<Params>> {
+  async get(id: string): Promise<WorkflowInstance<Params, EventMap>> {
     return this.executor.getInstance(id);
   }
 

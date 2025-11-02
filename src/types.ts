@@ -51,35 +51,35 @@ export interface WorkflowInstanceCreateOptions<Params = any> {
   params?: Params;
 }
 
-export interface WorkflowStep {
+export interface WorkflowStep<EventMap extends Record<string, any> = Record<string, any>> {
   do<T>(name: string, callback: () => Promise<T>): Promise<T>;
   do<T>(name: string, config: WorkflowStepConfig, callback: () => Promise<T>): Promise<T>;
   sleep(name: string, duration: string | number): Promise<void>;
   sleepUntil(name: string, timestamp: Date | number): Promise<void>;
-  waitForEvent(name: string, options: { type: string; timeout?: string | number }): Promise<any>;
+  waitForEvent<K extends keyof EventMap>(name: string, options: { type: K; timeout?: string | number }): Promise<EventMap[K]>;
 }
 
-export interface WorkflowInstance<Params = any> {
+export interface WorkflowInstance<Params = any, EventMap extends Record<string, any> = Record<string, any>> {
   id: string;
   pause(): Promise<void>;
   resume(): Promise<void>;
   terminate(): Promise<void>;
   restart(): Promise<void>;
   status(): Promise<InstanceStatusDetail<Params>>;
-  sendEvent(options: { type: string; payload?: any }): Promise<void>;
+  sendEvent<K extends keyof EventMap>(options: { type: K; payload?: EventMap[K] }): Promise<void>;
 }
 
-export interface Workflow<Params = any> {
-  create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>>;
-  createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params>[]>;
-  get(id: string): Promise<WorkflowInstance<Params>>;
+export interface Workflow<Params = any, EventMap extends Record<string, any> = Record<string, any>> {
+  create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params, EventMap>>;
+  createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params, EventMap>[]>;
+  get(id: string): Promise<WorkflowInstance<Params, EventMap>>;
   recover(): Promise<void>;
 }
 
-export abstract class WorkflowEntrypoint<Env = any, Params = any> {
+export abstract class WorkflowEntrypoint<Env = any, Params = any, EventMap extends Record<string, any> = Record<string, any>> {
   constructor(protected env: Env) {}
 
-  abstract run(event: WorkflowEvent<Params>, step: WorkflowStep): Promise<any>;
+  abstract run(event: WorkflowEvent<Params>, step: WorkflowStep<EventMap>): Promise<any>;
 }
 
 export class NonRetryableError extends Error {

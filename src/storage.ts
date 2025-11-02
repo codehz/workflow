@@ -1,9 +1,11 @@
 // storage.ts - 存储接口和内存实现
 
-import type { InstanceStatusDetail } from './types.js';
+import type { InstanceStatusDetail, StepState } from './types.js';
 
 export interface WorkflowStorage {
   saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
+  updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void>;
+  updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void>;
   loadInstance(instanceId: string): Promise<InstanceStatusDetail | null>;
   deleteInstance(instanceId: string): Promise<void>;
   listInstances(): Promise<string[]>;
@@ -14,6 +16,27 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
 
   async saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void> {
     this.storage.set(instanceId, { ...state });
+  }
+
+  async updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void> {
+    const existing = this.storage.get(instanceId);
+    if (existing) {
+      this.storage.set(instanceId, { ...existing, ...updates });
+    } else {
+      // 如果不存在，可以选择创建或抛错，这里假设只更新存在的
+      throw new Error(`Instance ${instanceId} not found`);
+    }
+  }
+
+  async updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void> {
+    const existing = this.storage.get(instanceId);
+    if (existing) {
+      const stepStates = existing.stepStates || {};
+      stepStates[stepName] = stepState;
+      this.storage.set(instanceId, { ...existing, stepStates });
+    } else {
+      throw new Error(`Instance ${instanceId} not found`);
+    }
   }
 
   async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
@@ -31,6 +54,14 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
 
 export class DisabledWorkflowStorage implements WorkflowStorage {
   async saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+
+  async updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+
+  async updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void> {
     return new Promise(() => {}); // 无限等待，模拟系统关闭
   }
 

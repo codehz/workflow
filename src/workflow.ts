@@ -56,8 +56,7 @@ class LocalWorkflowStep implements WorkflowStep {
 
     // 设置为 running，如果还没有
     if (!stepState || stepState.status === 'pending') {
-      state.stepStates[name] = { status: 'running', retries: 0 };
-      await this.storage.saveInstance(this.instanceId, state);
+      await this.storage.updateStepState(this.instanceId, name, { status: 'running', retries: 0 });
     }
 
     let attempts = state.stepStates[name]!.retries || 0;
@@ -72,16 +71,14 @@ class LocalWorkflowStep implements WorkflowStep {
         attempts++;
         if (error instanceof NonRetryableError || attempts > maxRetries) {
           // 保存失败状态
-          state.stepStates[name] = { status: 'failed', error: (error as Error).message, retries: attempts };
-          await this.storage.saveInstance(this.instanceId, state);
+          await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: (error as Error).message, retries: attempts });
           throw error;
         }
         // 等待重试
         const delay = typeof config!.retries!.delay === 'number' ? config!.retries!.delay : 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
         // 更新重试次数
-        state.stepStates[name]!.retries = attempts;
-        await this.storage.saveInstance(this.instanceId, state);
+        await this.storage.updateStepState(this.instanceId, name, { status: 'running', retries: attempts });
       }
     }
 
@@ -90,8 +87,7 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 保存成功状态
-    state.stepStates[name] = { status: 'completed', result };
-    await this.storage.saveInstance(this.instanceId, state);
+    await this.storage.updateStepState(this.instanceId, name, { status: 'completed', result });
 
     return result!;
   }
@@ -116,8 +112,7 @@ class LocalWorkflowStep implements WorkflowStep {
     const endTime = now + ms;
 
     // 保存 sleeping 状态
-    state.stepStates[name] = { status: 'sleeping', sleepEndTime: endTime };
-    await this.storage.saveInstance(this.instanceId, state);
+    await this.storage.updateStepState(this.instanceId, name, { status: 'sleeping', sleepEndTime: endTime });
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
@@ -126,8 +121,7 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 标记为完成
-    state.stepStates[name] = { status: 'completed', result: undefined };
-    await this.storage.saveInstance(this.instanceId, state);
+    await this.storage.updateStepState(this.instanceId, name, { status: 'completed', result: undefined });
   }
 
   async sleepUntil(name: string, timestamp: Date | number): Promise<void> {
@@ -154,8 +148,7 @@ class LocalWorkflowStep implements WorkflowStep {
     const endTime = target.getTime();
 
     // 保存 sleeping 状态
-    state.stepStates[name] = { status: 'sleeping', sleepEndTime: endTime };
-    await this.storage.saveInstance(this.instanceId, state);
+    await this.storage.updateStepState(this.instanceId, name, { status: 'sleeping', sleepEndTime: endTime });
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
@@ -164,8 +157,7 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 标记为完成
-    state.stepStates[name] = { status: 'completed', result: undefined };
-    await this.storage.saveInstance(this.instanceId, state);
+    await this.storage.updateStepState(this.instanceId, name, { status: 'completed', result: undefined });
   }
 
   async waitForEvent(name: string, options: { type: string; timeout?: string | number }): Promise<any> {
@@ -188,8 +180,7 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 保存 waiting 状态
-    state.stepStates[name] = { status: 'waitingForEvent', waitEventType: options.type, waitTimeout: timeoutMs };
-    await this.storage.saveInstance(this.instanceId, state);
+    await this.storage.updateStepState(this.instanceId, name, { status: 'waitingForEvent', waitEventType: options.type, waitTimeout: timeoutMs });
 
     if (this.isShutdown()) return new Promise<any>(() => {});
 
@@ -200,14 +191,12 @@ class LocalWorkflowStep implements WorkflowStep {
       ]);
 
       // 保存成功状态
-      state.stepStates[name] = { status: 'completed', result };
-      await this.storage.saveInstance(this.instanceId, state);
+      await this.storage.updateStepState(this.instanceId, name, { status: 'completed', result });
 
       return result;
     } catch (error) {
       // 保存失败状态
-      state.stepStates[name] = { status: 'failed', error: (error as Error).message };
-      await this.storage.saveInstance(this.instanceId, state);
+      await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: (error as Error).message });
       throw error;
     }
   }
@@ -239,10 +228,10 @@ class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Param
   }
 
   async pause(): Promise<void> {
-    const state = await this.storage.loadInstance(this.id);
-    if (state) {
-      state.status = 'paused';
-      await this.storage.saveInstance(this.id, state);
+    try {
+      await this.storage.updateInstance(this.id, { status: 'paused' });
+    } catch (error) {
+      // Instance not found, ignore
     }
   }
 
@@ -251,10 +240,10 @@ class LocalWorkflowInstance<Env, Params = any> implements WorkflowInstance<Param
   }
 
   async terminate(): Promise<void> {
-    const state = await this.storage.loadInstance(this.id);
-    if (state) {
-      state.status = 'terminated';
-      await this.storage.saveInstance(this.id, state);
+    try {
+      await this.storage.updateInstance(this.id, { status: 'terminated' });
+    } catch (error) {
+      // Instance not found, ignore
     }
   }
 
@@ -321,14 +310,11 @@ class WorkflowExecutor<Env, Params = any> {
 
     const runPromise = (async () => {
       try {
-        const currentState = await this.storage.loadInstance(instanceId);
-        await this.storage.saveInstance(instanceId, { ...currentState, status: 'running' });
+        await this.storage.updateInstance(instanceId, { status: 'running' });
         const output = await workflow.run(event, step);
-        const finalState = await this.storage.loadInstance(instanceId);
-        await this.storage.saveInstance(instanceId, { ...finalState, status: 'complete', output });
+        await this.storage.updateInstance(instanceId, { status: 'complete', output });
       } catch (error) {
-        const errorState = await this.storage.loadInstance(instanceId);
-        await this.storage.saveInstance(instanceId, { ...errorState, status: 'errored', error: (error as Error).message });
+        await this.storage.updateInstance(instanceId, { status: 'errored', error: (error as Error).message });
       }
     })();
 
@@ -346,8 +332,7 @@ class WorkflowExecutor<Env, Params = any> {
     if (!state.event) throw new Error(`No event stored for instance ${instanceId}`);
 
     // 标记为 running 并保存
-    state.status = 'running';
-    await this.storage.saveInstance(instanceId, state);
+    await this.storage.updateInstance(instanceId, { status: 'running' });
 
     // 清除之前的运行状态
     this.running.delete(instanceId);
@@ -363,11 +348,12 @@ class WorkflowExecutor<Env, Params = any> {
     if (!state.event) throw new Error(`No event stored for instance ${instanceId}`);
 
     // 清除步骤进度，设置为 queued
-    state.currentStep = undefined;
-    state.stepState = undefined;
-    state.stepStates = {}; // 清除所有步骤状态
-    state.status = 'queued';
-    await this.storage.saveInstance(instanceId, state);
+    await this.storage.updateInstance(instanceId, {
+      currentStep: undefined,
+      stepState: undefined,
+      stepStates: {}, // 清除所有步骤状态
+      status: 'queued'
+    });
 
     // 清除之前的运行状态
     this.running.delete(instanceId);

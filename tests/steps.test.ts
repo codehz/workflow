@@ -44,6 +44,15 @@ class ParallelStepWorkflow extends WorkflowEntrypoint<{}, { results: number[] }>
   }
 }
 
+// 测试字符串 duration 和 sleepUntil
+class StringDurationWorkflow extends WorkflowEntrypoint<{}, { slept: boolean }> {
+  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+    await step.sleep('sleep-str', '100 milliseconds'); // 无效单位，测试 default case
+    await step.sleepUntil('sleep-past', Date.now() - 1000); // 过去的时间，delay <= 0
+    return { slept: true };
+  }
+}
+
 test("工作流步骤执行和睡眠", async () => {
   const workflow = new LocalWorkflow(TestWorkflow);
   const instance = await workflow.create({
@@ -100,4 +109,16 @@ test("工作流中使用 Promise.all 等待多个步骤", async () => {
   const status = await instance.status();
   expect(status.status).toBe('complete');
   expect(status.output.results).toEqual([1, 2, 3]);
+});
+
+test("字符串 duration 和 sleepUntil 测试", async () => {
+  const workflow = new LocalWorkflow(StringDurationWorkflow);
+  const instance = await workflow.create();
+
+  // 等待完成
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  const status = await instance.status();
+  expect(status.status).toBe('complete');
+  expect(status.output.slept).toBe(true);
 });

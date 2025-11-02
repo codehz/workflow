@@ -24,4 +24,8 @@ test("内存存储功能", async () => {
   await storage.deleteInstance('test-id');
   const afterDelete = await storage.loadInstance('test-id');
   expect(afterDelete).toBeNull();
+
+  // 再次列出实例，确保为空
+  const listAfterDelete = await storage.listInstances();
+  expect(listAfterDelete).toEqual([]);
 });

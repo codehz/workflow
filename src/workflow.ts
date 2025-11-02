@@ -126,7 +126,7 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 标记为完成
-    state.stepStates[name] = { status: 'completed' };
+    state.stepStates[name] = { status: 'completed', result: undefined };
     await this.storage.saveInstance(this.instanceId, state);
   }
 
@@ -164,7 +164,7 @@ class LocalWorkflowStep implements WorkflowStep {
     }
 
     // 标记为完成
-    state.stepStates[name] = { status: 'completed' };
+    state.stepStates[name] = { status: 'completed', result: undefined };
     await this.storage.saveInstance(this.instanceId, state);
   }
 

@@ -26,6 +26,14 @@ export type InstanceStatus =
   | 'waitingForPause'
   | 'unknown';
 
+export type StepState =
+  | { status: 'pending'; retries?: number }
+  | { status: 'running'; retries?: number }
+  | { status: 'completed'; result: any; retries?: number }
+  | { status: 'failed'; error: string; retries?: number }
+  | { status: 'sleeping'; sleepEndTime: number; retries?: number }
+  | { status: 'waitingForEvent'; waitEventType: string; waitTimeout?: number; retries?: number };
+
 export interface InstanceStatusDetail<Params = any> {
   status: InstanceStatus;
   error?: string;
@@ -35,15 +43,7 @@ export interface InstanceStatusDetail<Params = any> {
   // 保存触发此实例的事件，便于恢复和重启
   event?: WorkflowEvent<Params>;
   // 保存所有步骤的状态，便于恢复
-  stepStates?: Record<string, {
-    status: 'pending' | 'running' | 'completed' | 'failed' | 'sleeping' | 'waitingForEvent';
-    result?: any;
-    error?: string;
-    retries?: number;
-    sleepEndTime?: number; // 对于 sleep，结束时间戳
-    waitEventType?: string; // 对于 waitForEvent
-    waitTimeout?: number;
-  }>;
+  stepStates?: Record<string, StepState>;
 }
 
 export interface WorkflowInstanceCreateOptions<Params = any> {

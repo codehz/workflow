@@ -74,7 +74,12 @@ writeFileSync(
 // 复制 LICENSE 文件到 dist
 await Bun.$`cp LICENSE dist/LICENSE`;
 
-// 复制 README 文件到 dist
-await Bun.$`cp README.md dist/README.md`;
+// 复制所有 README 文件到 dist
+const readmeFiles = readdirSync(".").filter(
+  (f) => typeof f === "string" && f.startsWith("README") && f.endsWith(".md"),
+);
+for (const file of readmeFiles) {
+  await Bun.$`cp ${file} dist/${file}`;
+}
 
 console.log("Release script completed. Ready for publish.");

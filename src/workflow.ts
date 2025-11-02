@@ -71,7 +71,7 @@ class LocalWorkflowStep implements WorkflowStep {
         attempts++;
         if (error instanceof NonRetryableError || attempts > maxRetries) {
           // 保存失败状态
-          await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: (error as Error).message, retries: attempts });
+          await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: getErrorMessage(error), retries: attempts });
           throw error;
         }
         // 等待重试
@@ -196,7 +196,7 @@ class LocalWorkflowStep implements WorkflowStep {
       return result;
     } catch (error) {
       // 保存失败状态
-      await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: (error as Error).message });
+      await this.storage.updateStepState(this.instanceId, name, { status: 'failed', error: getErrorMessage(error) });
       throw error;
     }
   }
@@ -314,7 +314,7 @@ class WorkflowExecutor<Env, Params = any> {
         const output = await workflow.run(event, step);
         await this.storage.updateInstance(instanceId, { status: 'complete', output });
       } catch (error) {
-        await this.storage.updateInstance(instanceId, { status: 'errored', error: (error as Error).message });
+        await this.storage.updateInstance(instanceId, { status: 'errored', error: getErrorMessage(error) });
       }
     })();
 
@@ -415,6 +415,13 @@ class WorkflowExecutor<Env, Params = any> {
 
 function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
 export class LocalWorkflow<Env, Params = any> implements Workflow<Params> {

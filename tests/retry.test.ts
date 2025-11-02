@@ -37,7 +37,7 @@ class ErrorHandlingWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
       });
       return { result: 'no error' };
     } catch (error) {
-      return { result: `caught: ${(error as Error).message}` };
+      return { result: `caught: ${error instanceof Error ? error.message : String(error)}` };
     }
   }
 }

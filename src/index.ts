@@ -28,9 +28,12 @@ export {
 export {
   // 工作流基类
   WorkflowEntrypoint,
+} from './types.js';
+
+export {
   // 异常类
   NonRetryableError,
-} from './types.js';
+} from './errors.js';
 
 export {
   // 核心工作流类

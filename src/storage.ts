@@ -1,7 +1,7 @@
 // storage.ts - 存储接口和内存实现
 
 import type { InstanceStatusDetail, StepState, InstanceStatus, InstanceSummary } from './types.js';
-import { DISABLED_PROMISE } from './types.js';
+import { DISABLED_PROMISE } from './constants.js';
 
 export interface WorkflowStorage {
   saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;

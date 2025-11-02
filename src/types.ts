@@ -86,13 +86,3 @@ export abstract class WorkflowEntrypoint<Env = any, Params = any, EventMap exten
 
   abstract run(event: WorkflowEvent<Params>, step: WorkflowStep<EventMap>): Promise<any>;
 }
-
-export class NonRetryableError extends Error {
-  constructor(message: string, name?: string) {
-    super(message);
-    this.name = name || 'NonRetryableError';
-  }
-}
-
-// 无限等待的Promise，用于模拟系统关闭时的阻塞
-export const DISABLED_PROMISE: Promise<any> = new Promise(() => {});

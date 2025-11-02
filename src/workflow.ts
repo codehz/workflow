@@ -30,15 +30,36 @@ class LocalWorkflowStep implements WorkflowStep {
     const state = await this.storage.loadInstance(this.instanceId);
     if (!state) throw new Error('Instance not found');
 
-    // 如果是恢复，检查是否已经执行过此步骤
-    if (state.currentStep === name && state.stepState) {
-      return state.stepState as T;
+    // 初始化 stepStates 如果不存在
+    if (!state.stepStates) {
+      state.stepStates = {};
+    }
+
+    const stepState = state.stepStates[name];
+    if (stepState) {
+      if (stepState.status === 'completed') {
+        return stepState.result as T;
+      }
+      if (stepState.status === 'failed') {
+        throw new Error(stepState.error);
+      }
+      // 如果是 running 或其他，继续
+    } else {
+      // 初始化步骤状态
+      state.stepStates[name] = { status: 'pending' };
     }
 
     // 执行步骤
     let result: T | undefined;
-    let attempts = 0;
     const maxRetries = config?.retries?.limit || 0;
+
+    // 设置为 running，如果还没有
+    if (!stepState || stepState.status === 'pending') {
+      state.stepStates[name] = { status: 'running', retries: 0 };
+      await this.storage.saveInstance(this.instanceId, state);
+    }
+
+    let attempts = state.stepStates[name]!.retries || 0;
 
     while (attempts <= maxRetries) {
       try {
@@ -47,11 +68,17 @@ class LocalWorkflowStep implements WorkflowStep {
       } catch (error) {
         attempts++;
         if (error instanceof NonRetryableError || attempts > maxRetries) {
+          // 保存失败状态
+          state.stepStates[name] = { status: 'failed', error: (error as Error).message, retries: attempts };
+          await this.storage.saveInstance(this.instanceId, state);
           throw error;
         }
         // 等待重试
         const delay = typeof config!.retries!.delay === 'number' ? config!.retries!.delay : 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
+        // 更新重试次数
+        state.stepStates[name]!.retries = attempts;
+        await this.storage.saveInstance(this.instanceId, state);
       }
     }
 
@@ -59,12 +86,9 @@ class LocalWorkflowStep implements WorkflowStep {
       throw new Error('Step failed after retries');
     }
 
-    // 保存状态
-    await this.storage.saveInstance(this.instanceId, {
-      ...state,
-      currentStep: name,
-      stepState: result
-    });
+    // 保存成功状态
+    state.stepStates[name] = { status: 'completed', result };
+    await this.storage.saveInstance(this.instanceId, state);
 
     return result!;
   }
@@ -74,7 +98,32 @@ class LocalWorkflowStep implements WorkflowStep {
     if (ms <= 0) {
       throw new Error(`Invalid duration: ${duration}`);
     }
-    await new Promise(resolve => setTimeout(resolve, ms));
+
+    // 加载当前状态
+    const state = await this.storage.loadInstance(this.instanceId);
+    if (!state) throw new Error('Instance not found');
+    if (!state.stepStates) state.stepStates = {};
+
+    const stepState = state.stepStates[name];
+    if (stepState && stepState.status === 'completed') {
+      return;
+    }
+
+    const now = Date.now();
+    const endTime = now + ms;
+
+    // 保存 sleeping 状态
+    state.stepStates[name] = { status: 'sleeping', sleepEndTime: endTime };
+    await this.storage.saveInstance(this.instanceId, state);
+
+    const remaining = endTime - Date.now();
+    if (remaining > 0) {
+      await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+
+    // 标记为完成
+    state.stepStates[name] = { status: 'completed' };
+    await this.storage.saveInstance(this.instanceId, state);
   }
 
   async sleepUntil(name: string, timestamp: Date | number): Promise<void> {
@@ -87,16 +136,73 @@ class LocalWorkflowStep implements WorkflowStep {
     if (delay <= 0) {
       throw new Error(`Timestamp is in the past or invalid: ${timestamp}`);
     }
-    await new Promise(resolve => setTimeout(resolve, delay));
+
+    // 加载当前状态
+    const state = await this.storage.loadInstance(this.instanceId);
+    if (!state) throw new Error('Instance not found');
+    if (!state.stepStates) state.stepStates = {};
+
+    const stepState = state.stepStates[name];
+    if (stepState && stepState.status === 'completed') {
+      return;
+    }
+
+    const endTime = target.getTime();
+
+    // 保存 sleeping 状态
+    state.stepStates[name] = { status: 'sleeping', sleepEndTime: endTime };
+    await this.storage.saveInstance(this.instanceId, state);
+
+    const remaining = endTime - Date.now();
+    if (remaining > 0) {
+      await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+
+    // 标记为完成
+    state.stepStates[name] = { status: 'completed' };
+    await this.storage.saveInstance(this.instanceId, state);
   }
 
   async waitForEvent(name: string, options: { type: string; timeout?: string | number }): Promise<any> {
     const timeoutMs = options.timeout ? (typeof options.timeout === 'string' ? parseDuration(options.timeout) : options.timeout) : 24 * 60 * 60 * 1000; // 默认24小时
 
-    return Promise.race([
-      this.onEvent(options.type),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
-    ]);
+    // 加载当前状态
+    const state = await this.storage.loadInstance(this.instanceId);
+    if (!state) throw new Error('Instance not found');
+    if (!state.stepStates) state.stepStates = {};
+
+    const stepState = state.stepStates[name];
+    if (stepState) {
+      if (stepState.status === 'completed') {
+        return stepState.result;
+      }
+      if (stepState.status === 'failed') {
+        throw new Error(stepState.error);
+      }
+      // 如果是 waitingForEvent，继续等待
+    }
+
+    // 保存 waiting 状态
+    state.stepStates[name] = { status: 'waitingForEvent', waitEventType: options.type, waitTimeout: timeoutMs };
+    await this.storage.saveInstance(this.instanceId, state);
+
+    try {
+      const result = await Promise.race([
+        this.onEvent(options.type),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
+      ]);
+
+      // 保存成功状态
+      state.stepStates[name] = { status: 'completed', result };
+      await this.storage.saveInstance(this.instanceId, state);
+
+      return result;
+    } catch (error) {
+      // 保存失败状态
+      state.stepStates[name] = { status: 'failed', error: (error as Error).message };
+      await this.storage.saveInstance(this.instanceId, state);
+      throw error;
+    }
   }
 }
 
@@ -244,6 +350,7 @@ class WorkflowExecutor<Env, Params = any> {
     // 清除步骤进度，设置为 queued
     state.currentStep = undefined;
     state.stepState = undefined;
+    state.stepStates = {}; // 清除所有步骤状态
     state.status = 'queued';
     await this.storage.saveInstance(instanceId, state);
 
@@ -261,6 +368,34 @@ class WorkflowExecutor<Env, Params = any> {
       if (listener) {
         listener(payload);
         listeners.delete(type);
+      }
+    }
+  }
+
+  async recoverAll(): Promise<void> {
+    // 获取所有实例ID
+    const instanceIds = await this.storage.listInstances();
+
+    for (const id of instanceIds) {
+      const state = await this.storage.loadInstance(id);
+      if (!state) continue;
+
+      // 只恢复未完成的状态
+      if (state.status === 'complete' || state.status === 'terminated' || state.status === 'errored') {
+        continue;
+      }
+
+      if (!state.event) {
+        console.warn(`Instance ${id} has no event stored, skipping recovery`);
+        continue;
+      }
+
+      if (state.status === 'paused') {
+        // 对于暂停的实例，恢复执行
+        await this.resumeInstance(id);
+      } else if (state.status === 'queued' || state.status === 'running' || state.status === 'waiting' || state.status === 'waitingForPause') {
+        // 对于其他未完成状态，重新启动执行
+        await this.startInstance(id, state.event);
       }
     }
   }
@@ -297,5 +432,9 @@ export class LocalWorkflow<Env, Params = any> implements Workflow<Params> {
 
   async get(id: string): Promise<WorkflowInstance<Params>> {
     return this.executor.getInstance(id);
+  }
+
+  async recover(): Promise<void> {
+    return this.executor.recoverAll();
   }
 }

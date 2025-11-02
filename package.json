@@ -5,6 +5,7 @@
   "scripts": {
     "example": "bun run examples/example.ts",
     "advanced": "bun run examples/advanced-example.ts",
+    "recover-example": "bun run examples/recover-example.ts",
     "test": "bun test"
   },
   "devDependencies": {

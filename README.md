@@ -120,6 +120,18 @@ interface WorkflowStorage {
 - `create(options)`: 创建实例
 - `createBatch(batch)`: 批量创建
 - `get(id)`: 获取实例
+- `recover()`: 恢复所有未完成的工作流实例
+
+### 自动恢复
+
+在应用启动时，可以调用 `recover()` 来自动恢复之前未完成的工作流实例：
+
+```typescript
+// 应用启动时
+await workflow.recover();
+```
+
+这将扫描存储中的所有实例，恢复状态为 `running`、`paused`、`waiting` 等未完成状态的实例。
 
 ## 运行示例
 

@@ -34,6 +34,16 @@ export interface InstanceStatusDetail<Params = any> {
   stepState?: any;
   // 保存触发此实例的事件，便于恢复和重启
   event?: WorkflowEvent<Params>;
+  // 保存所有步骤的状态，便于恢复
+  stepStates?: Record<string, {
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'sleeping' | 'waitingForEvent';
+    result?: any;
+    error?: string;
+    retries?: number;
+    sleepEndTime?: number; // 对于 sleep，结束时间戳
+    waitEventType?: string; // 对于 waitForEvent
+    waitTimeout?: number;
+  }>;
 }
 
 export interface WorkflowInstanceCreateOptions<Params = any> {
@@ -63,6 +73,7 @@ export interface Workflow<Params = any> {
   create(options?: WorkflowInstanceCreateOptions<Params>): Promise<WorkflowInstance<Params>>;
   createBatch(batch: WorkflowInstanceCreateOptions<Params>[]): Promise<WorkflowInstance<Params>[]>;
   get(id: string): Promise<WorkflowInstance<Params>>;
+  recover(): Promise<void>;
 }
 
 export abstract class WorkflowEntrypoint<Env = any, Params = any> {

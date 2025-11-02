@@ -69,7 +69,8 @@ class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap> {
 ### 创建和运行工作流实例
 
 ```typescript
-import { LocalWorkflow, InMemoryWorkflowStorage } from "@codehz/workflow";
+import { LocalWorkflow } from "@codehz/workflow";
+import { InMemoryWorkflowStorage } from "@codehz/workflow/storages/in-memory";
 
 // 创建存储（默认内存）
 const storage = new InMemoryWorkflowStorage();

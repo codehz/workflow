@@ -71,7 +71,8 @@ class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap> {
 ### Creating and Running Workflow Instances
 
 ```typescript
-import { LocalWorkflow, InMemoryWorkflowStorage } from "@codehz/workflow";
+import { LocalWorkflow } from "@codehz/workflow";
+import { InMemoryWorkflowStorage } from "@codehz/workflow/storages/in-memory";
 
 // Create storage (default in-memory)
 const storage = new InMemoryWorkflowStorage();

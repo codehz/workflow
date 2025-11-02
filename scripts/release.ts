@@ -29,11 +29,9 @@ const tagOutput = await Bun.$`git describe --tags --abbrev=0`;
 const tag = tagOutput.text().trim();
 const version = tag.startsWith("v") ? tag.slice(1) : tag;
 
-// 读取并更新 package.json 的 version
 const pkgPath = "package.json";
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 pkg.version = version;
-writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 
 // 运行构建
 await build();

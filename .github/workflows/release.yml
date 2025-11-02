@@ -32,4 +32,5 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish
-        run: bun publish dist
+        working-directory: dist
+        run: bun publish

@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { build } from "./dist.js";
 
@@ -38,6 +38,24 @@ writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 // 运行构建
 await build();
 
+// 生成 exports
+const distFiles = readdirSync("dist", { recursive: true }).filter(
+  (f) => typeof f === "string" && f.endsWith(".js"),
+);
+const exports: Record<string, any> = {};
+for (const file of distFiles) {
+  if (typeof file !== "string") continue;
+  const normalizedFile = file.replace(/\\/g, "/");
+  const key =
+    normalizedFile === "index.js"
+      ? "."
+      : `./${normalizedFile.replace(/\.js$/, "")}`;
+  exports[key] = {
+    types: `./${normalizedFile.replace(/\.js$/, ".d.ts")}`,
+    import: `./${normalizedFile}`,
+  };
+}
+
 // 创建 dist/package.json
 const publishPkg = {
   name: pkg.name,
@@ -46,18 +64,7 @@ const publishPkg = {
   type: pkg.type,
   main: "./index.js",
   types: "./index.d.ts",
-  exports: Object.fromEntries(
-    Object.entries(pkg.exports).map(([key, value]) => [
-      key,
-      typeof value === "object" && value !== null
-        ? {
-            ...value,
-            types: (value as any).types?.replace(/^(\.\/)?dist\//, "./"),
-            import: (value as any).import?.replace(/^(\.\/)?dist\//, "./"),
-          }
-        : value,
-    ]),
-  ),
+  exports,
   peerDependencies: pkg.peerDependencies,
 };
 

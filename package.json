@@ -4,26 +4,10 @@
   "version": "0.0.0",
   "module": "src/index.ts",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "files": [
     "dist"
   ],
   "repositoryUrl": "https://github.com/codehz/workflow",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./storages/in-memory": {
-      "types": "./dist/storages/in-memory.d.ts",
-      "import": "./dist/storages/in-memory.js"
-    },
-    "./storages/disabled": {
-      "types": "./dist/storages/disabled.d.ts",
-      "import": "./dist/storages/disabled.js"
-    }
-  },
   "scripts": {
     "dist": "bun run scripts/dist.ts",
     "example": "bun run examples/example.ts",

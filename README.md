@@ -154,12 +154,6 @@ await workflow.recover();
 
 这将扫描存储中的所有实例，恢复状态为 `running`、`paused`、`waiting` 等未完成状态的实例。
 
-## 运行示例
-
-```bash
-bun run example.ts
-```
-
 ## 许可证
 
 MIT

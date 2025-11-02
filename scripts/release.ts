@@ -76,4 +76,7 @@ writeFileSync(
 // 复制 LICENSE 文件到 dist
 await Bun.$`cp LICENSE dist/LICENSE`;
 
+// 复制 README 文件到 dist
+await Bun.$`cp README.md dist/README.md`;
+
 console.log("Release script completed. Ready for publish.");

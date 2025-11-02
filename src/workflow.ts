@@ -115,11 +115,11 @@ function parseDuration(duration: string): number {
   }
 }
 
-class LocalWorkflowInstance implements WorkflowInstance {
+class LocalWorkflowInstance<Env> implements WorkflowInstance {
   constructor(
     public id: string,
     private storage: WorkflowStorage,
-    private executor: WorkflowExecutor
+    private executor: WorkflowExecutor<Env>
   ) {}
 
   async pause(): Promise<void> {
@@ -156,13 +156,13 @@ class LocalWorkflowInstance implements WorkflowInstance {
   }
 }
 
-class WorkflowExecutor {
+class WorkflowExecutor<Env> {
   private running = new Map<string, Promise<void>>();
   private eventListeners = new Map<string, Map<string, (payload: any) => void>>();
 
   constructor(
-    private workflowClass: new (env: any) => WorkflowEntrypoint,
-    private env: any,
+    private workflowClass: new (env: Env) => WorkflowEntrypoint<Env>,
+    private env: Env,
     private storage: WorkflowStorage
   ) {}
 
@@ -182,7 +182,7 @@ class WorkflowExecutor {
     };
     await this.storage.saveInstance(id, initialState);
 
-    const instance = new LocalWorkflowInstance(id, this.storage, this);
+    const instance = new LocalWorkflowInstance<Env>(id, this.storage, this);
     this.startInstance(id, event);
     return instance;
   }
@@ -268,7 +268,7 @@ class WorkflowExecutor {
   async getInstance(id: string): Promise<WorkflowInstance> {
     const state = await this.storage.loadInstance(id);
     if (!state) throw new Error('Instance not found');
-    return new LocalWorkflowInstance(id, this.storage, this);
+    return new LocalWorkflowInstance<Env>(id, this.storage, this);
   }
 }
 
@@ -276,15 +276,15 @@ function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
 }
 
-export class LocalWorkflow implements Workflow {
-  private executor: WorkflowExecutor;
+export class LocalWorkflow<Env> implements Workflow {
+  private executor: WorkflowExecutor<Env>;
 
   constructor(
-    workflowClass: new (env: any) => WorkflowEntrypoint,
-    env: any = {},
+    workflowClass: new (env: Env) => WorkflowEntrypoint<Env>,
+    env: Env = {} as Env,
     storage: WorkflowStorage = new InMemoryWorkflowStorage()
   ) {
-    this.executor = new WorkflowExecutor(workflowClass, env, storage);
+    this.executor = new WorkflowExecutor<Env>(workflowClass, env, storage);
   }
 
   async create(options?: WorkflowInstanceCreateOptions): Promise<WorkflowInstance> {

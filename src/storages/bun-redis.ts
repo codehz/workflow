@@ -62,47 +62,47 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     state: InstanceStatusDetail,
   ): Promise<void> {
     const statusKey = this.getStatusKey(instanceId);
-    await this.client.set(statusKey, this.serialize(state.status));
-
     const stepsHashKey = this.getStepsHashKey(instanceId);
-    await this.client.del(stepsHashKey); // 清空哈希
+    const errorKey = this.getErrorKey(instanceId);
+    const outputKey = this.getOutputKey(instanceId);
+    const eventKey = this.getEventKey(instanceId);
+
+    // 并发执行所有独立的 set/del 操作
+    const operations: Promise<any>[] = [
+      this.client.set(statusKey, this.serialize(state.status)),
+      this.client.del(stepsHashKey), // 清空哈希
+    ];
+
     if (state.stepStates && Object.keys(state.stepStates).length > 0) {
       const hashFields = Object.entries(state.stepStates).flatMap(([k, v]) => [
         k,
         this.serialize(v),
       ]);
-      await this.client.hmset(stepsHashKey, hashFields);
+      operations.push(this.client.hmset(stepsHashKey, hashFields));
     }
 
     // 处理其他字段
     if (state.error !== undefined) {
-      await this.client.set(
-        this.getErrorKey(instanceId),
-        this.serialize(state.error),
-      );
+      operations.push(this.client.set(errorKey, this.serialize(state.error)));
     } else {
-      await this.client.del(this.getErrorKey(instanceId));
+      operations.push(this.client.del(errorKey));
     }
 
     if (state.output !== undefined) {
-      await this.client.set(
-        this.getOutputKey(instanceId),
-        this.serialize(state.output),
-      );
+      operations.push(this.client.set(outputKey, this.serialize(state.output)));
     } else {
-      await this.client.del(this.getOutputKey(instanceId));
+      operations.push(this.client.del(outputKey));
     }
 
     if (state.event !== undefined) {
-      await this.client.set(
-        this.getEventKey(instanceId),
-        this.serialize(state.event),
-      );
+      operations.push(this.client.set(eventKey, this.serialize(state.event)));
     } else {
-      await this.client.del(this.getEventKey(instanceId));
+      operations.push(this.client.del(eventKey));
     }
 
-    // 计算score并添加到zset
+    await Promise.all(operations);
+
+    // 计算score并添加到zset（依赖event）
     const statusScore = getStatusScore(state.status);
     const timestamp = state.event.timestamp.getTime();
     const score = statusScore * TIME_MULTIPLIER + timestamp;
@@ -113,14 +113,60 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     instanceId: string,
     updates: Partial<InstanceStatusDetail>,
   ): Promise<void> {
-    if (updates.status !== undefined) {
-      await this.client.set(
-        this.getStatusKey(instanceId),
-        this.serialize(updates.status),
-      );
+    const operations: Promise<any>[] = [];
 
-      // 更新zset中的score
-      // 需要获取创建时间来重新计算score
+    if (updates.status !== undefined) {
+      operations.push(
+        this.client.set(
+          this.getStatusKey(instanceId),
+          this.serialize(updates.status),
+        ),
+      );
+    }
+
+    if (updates.stepStates !== undefined) {
+      const stepsHashKey = this.getStepsHashKey(instanceId);
+      operations.push(this.client.del(stepsHashKey));
+      if (Object.keys(updates.stepStates).length > 0) {
+        const hashFields = Object.entries(updates.stepStates).flatMap(
+          ([k, v]) => [k, this.serialize(v)],
+        );
+        operations.push(this.client.hmset(stepsHashKey, hashFields));
+      }
+    }
+
+    // 处理其他字段
+    if (updates.error !== undefined) {
+      operations.push(
+        this.client.set(
+          this.getErrorKey(instanceId),
+          this.serialize(updates.error),
+        ),
+      );
+    }
+
+    if (updates.output !== undefined) {
+      operations.push(
+        this.client.set(
+          this.getOutputKey(instanceId),
+          this.serialize(updates.output),
+        ),
+      );
+    }
+
+    if (updates.event !== undefined) {
+      operations.push(
+        this.client.set(
+          this.getEventKey(instanceId),
+          this.serialize(updates.event),
+        ),
+      );
+    }
+
+    await Promise.all(operations);
+
+    // 如果更新了status，需要更新zset score
+    if (updates.status !== undefined) {
       const eventStr = await this.client.get(this.getEventKey(instanceId));
       if (eventStr) {
         const event = this.deserialize(eventStr);
@@ -129,39 +175,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
         const score = statusScore * TIME_MULTIPLIER + timestamp;
         await this.client.zadd(this.getInstancesZSetKey(), score, instanceId);
       }
-    }
-
-    if (updates.stepStates !== undefined) {
-      const stepsHashKey = this.getStepsHashKey(instanceId);
-      await this.client.del(stepsHashKey);
-      if (Object.keys(updates.stepStates).length > 0) {
-        const hashFields = Object.entries(updates.stepStates).flatMap(
-          ([k, v]) => [k, this.serialize(v)],
-        );
-        await this.client.hmset(stepsHashKey, hashFields);
-      }
-    }
-
-    // 处理其他字段
-    if (updates.error !== undefined) {
-      await this.client.set(
-        this.getErrorKey(instanceId),
-        this.serialize(updates.error),
-      );
-    }
-
-    if (updates.output !== undefined) {
-      await this.client.set(
-        this.getOutputKey(instanceId),
-        this.serialize(updates.output),
-      );
-    }
-
-    if (updates.event !== undefined) {
-      await this.client.set(
-        this.getEventKey(instanceId),
-        this.serialize(updates.event),
-      );
     }
   }
 
@@ -215,14 +228,16 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
   }
 
   async deleteInstance(instanceId: string): Promise<void> {
-    await this.client.del(
-      this.getStatusKey(instanceId),
-      this.getStepsHashKey(instanceId),
-      this.getErrorKey(instanceId),
-      this.getOutputKey(instanceId),
-      this.getEventKey(instanceId),
-    );
-    await this.client.zrem(this.getInstancesZSetKey(), instanceId);
+    await Promise.all([
+      this.client.del(
+        this.getStatusKey(instanceId),
+        this.getStepsHashKey(instanceId),
+        this.getErrorKey(instanceId),
+        this.getOutputKey(instanceId),
+        this.getEventKey(instanceId),
+      ),
+      this.client.zrem(this.getInstancesZSetKey(), instanceId),
+    ]);
   }
 
   async listInstanceSummaries(): Promise<InstanceSummary[]> {
@@ -233,11 +248,16 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       -1,
     );
     const summaries: InstanceSummary[] = [];
-    for (const id of instanceIds) {
-      const statusStr = await this.client.get(this.getStatusKey(id));
+    // 并发获取所有状态
+    const statusPromises = instanceIds.map((id) =>
+      this.client.get(this.getStatusKey(id)),
+    );
+    const statusStrings = await Promise.all(statusPromises);
+    for (let i = 0; i < instanceIds.length; i++) {
+      const statusStr = statusStrings[i];
       if (statusStr) {
         const status = this.deserialize(statusStr);
-        summaries.push({ id, status });
+        summaries.push({ id: instanceIds[i]!, status });
       }
     }
     return summaries;

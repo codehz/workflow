@@ -9,10 +9,9 @@ import type {
   WorkflowInstanceCreateOptions,
   WorkflowStepConfig
 } from './types.js';
-import { WorkflowEntrypoint } from './types.js';
+import { WorkflowEntrypoint, type WorkflowStorage } from './types.js';
 import { NonRetryableError } from './errors.js';
 import { DISABLED_PROMISE } from './constants.js';
-import type { WorkflowStorage } from './storage.js';
 import { InMemoryWorkflowStorage, DisabledWorkflowStorage } from './storage.js';
 
 class LocalWorkflowStep<EventMap extends Record<string, any> = Record<string, any>> implements WorkflowStep<EventMap> {

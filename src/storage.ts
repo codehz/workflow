@@ -1,17 +1,7 @@
 // storage.ts - 存储接口和内存实现
 
-import type { InstanceStatusDetail, StepState, InstanceStatus, InstanceSummary } from './types.js';
+import type { InstanceStatusDetail, StepState, InstanceStatus, InstanceSummary, WorkflowStorage } from './types.js';
 import { DISABLED_PROMISE } from './constants.js';
-
-export interface WorkflowStorage {
-  saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
-  updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void>;
-  updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void>;
-  loadInstance(instanceId: string): Promise<InstanceStatusDetail | null>;
-  deleteInstance(instanceId: string): Promise<void>;
-  listInstanceSummaries(): Promise<InstanceSummary[]>;
-  listActiveInstances(): Promise<string[]>;
-}
 
 export class InMemoryWorkflowStorage implements WorkflowStorage {
   private storage = new Map<string, InstanceStatusDetail>();

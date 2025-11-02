@@ -86,3 +86,13 @@ export abstract class WorkflowEntrypoint<Env = any, Params = any, EventMap exten
 
   abstract run(event: WorkflowEvent<Params>, step: WorkflowStep<EventMap>): Promise<any>;
 }
+
+export interface WorkflowStorage {
+  saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
+  updateInstance(instanceId: string, updates: Partial<InstanceStatusDetail>): Promise<void>;
+  updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void>;
+  loadInstance(instanceId: string): Promise<InstanceStatusDetail | null>;
+  deleteInstance(instanceId: string): Promise<void>;
+  listInstanceSummaries(): Promise<InstanceSummary[]>;
+  listActiveInstances(): Promise<string[]>;
+}

@@ -12,12 +12,9 @@ export type {
   WorkflowStep,
   WorkflowInstance,
   Workflow,
-} from './types.js';
-
-export type {
   // 存储接口
   WorkflowStorage,
-} from './storage.js';
+} from './types.js';
 
 export {
   // 存储实现类

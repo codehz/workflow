@@ -72,16 +72,23 @@ class LocalWorkflowStep implements WorkflowStep {
 
   async sleep(name: string, duration: string | number): Promise<void> {
     const ms = typeof duration === 'string' ? parseDuration(duration) : duration;
+    if (ms <= 0) {
+      throw new Error(`Invalid duration: ${duration}`);
+    }
     await new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async sleepUntil(name: string, timestamp: Date | number): Promise<void> {
     const target = typeof timestamp === 'number' ? new Date(timestamp * 1000) : timestamp;
+    if (isNaN(target.getTime())) {
+      throw new Error(`Invalid timestamp: ${timestamp}`);
+    }
     const now = new Date();
     const delay = target.getTime() - now.getTime();
-    if (delay > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
+    if (delay <= 0) {
+      throw new Error(`Timestamp is in the past or invalid: ${timestamp}`);
     }
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 
   async waitForEvent(name: string, options: { type: string; timeout?: string | number }): Promise<any> {
@@ -97,7 +104,7 @@ class LocalWorkflowStep implements WorkflowStep {
 function parseDuration(duration: string): number {
   // 简单解析，如 "1 hour", "30 seconds"
   const match = duration.match(/(\d+)\s*(second|minute|hour|day)s?/);
-  if (!match || !match[1]) return 0;
+  if (!match || !match[1]) throw new Error(`Invalid duration format: ${duration}`);
   const value = parseInt(match[1]);
   const unit = match[2];
   switch (unit) {
@@ -105,7 +112,7 @@ function parseDuration(duration: string): number {
     case 'minute': return value * 60 * 1000;
     case 'hour': return value * 60 * 60 * 1000;
     case 'day': return value * 24 * 60 * 60 * 1000;
-    default: return 0;
+    default: throw new Error(`Invalid duration unit: ${unit}`);
   }
 }
 

@@ -53,6 +53,22 @@ class StringDurationWorkflow extends WorkflowEntrypoint<{}, { slept: boolean }> 
   }
 }
 
+// 测试字符串 duration 无效
+class InvalidDurationWorkflow extends WorkflowEntrypoint<{}, { slept: boolean }> {
+  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+    await step.sleep('sleep-str', '100 milliseconds');
+    return { slept: true };
+  }
+}
+
+// 测试 sleepUntil 过去时间
+class PastTimestampWorkflow extends WorkflowEntrypoint<{}, { slept: boolean }> {
+  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+    await step.sleepUntil('sleep-past', new Date(Date.now() - 1000));
+    return { slept: true };
+  }
+}
+
 test("工作流步骤执行和睡眠", async () => {
   const workflow = new LocalWorkflow(TestWorkflow);
   const instance = await workflow.create({
@@ -111,14 +127,26 @@ test("工作流中使用 Promise.all 等待多个步骤", async () => {
   expect(status.output.results).toEqual([1, 2, 3]);
 });
 
-test("字符串 duration 和 sleepUntil 测试", async () => {
-  const workflow = new LocalWorkflow(StringDurationWorkflow);
+test("字符串 duration 无效测试", async () => {
+  const workflow = new LocalWorkflow(InvalidDurationWorkflow);
   const instance = await workflow.create();
 
   // 等待完成
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   const status = await instance.status();
-  expect(status.status).toBe('complete');
-  expect(status.output.slept).toBe(true);
+  expect(status.status).toBe('errored');
+  expect(status.error).toContain('Invalid duration format');
+});
+
+test("sleepUntil 过去时间测试", async () => {
+  const workflow = new LocalWorkflow(PastTimestampWorkflow);
+  const instance = await workflow.create();
+
+  // 等待完成
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  const status = await instance.status();
+  expect(status.status).toBe('errored');
+  expect(status.error).toContain('Timestamp is in the past');
 });

@@ -2,7 +2,17 @@
   "name": "@codehz/workflow",
   "module": "src/index.ts",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
+    "dist": "bun build src/index.ts --outdir dist --target node && bunx tsc --project tsconfig.build.json && bun run build-package.js",
     "example": "bun run examples/example.ts",
     "advanced": "bun run examples/advanced-example.ts",
     "recover-example": "bun run examples/recover-example.ts",

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { InMemoryWorkflowStorage } from "../src/index.js";
+import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 test("内存存储功能", async () => {
   const storage = new InMemoryWorkflowStorage();

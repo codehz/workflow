@@ -14,10 +14,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./storages/in-memory": {
+      "types": "./dist/storages/in-memory.d.ts",
+      "import": "./dist/storages/in-memory.js"
+    },
+    "./storages/disabled": {
+      "types": "./dist/storages/disabled.d.ts",
+      "import": "./dist/storages/disabled.js"
     }
   },
   "scripts": {
-    "dist": "bun build src/index.ts --outdir dist --target node && bunx tsc --project tsconfig.build.json",
+    "dist": "bun run scripts/dist.ts",
     "example": "bun run examples/example.ts",
     "advanced": "bun run examples/advanced-example.ts",
     "recover-example": "bun run examples/recover-example.ts",

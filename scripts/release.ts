@@ -22,6 +22,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { build } from "./dist.js";
 
 // 获取最新 git tag
 const tagOutput = await Bun.$`git describe --tags --abbrev=0`;
@@ -35,8 +36,7 @@ pkg.version = version;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 
 // 运行构建
-await Bun.$`bun build src/index.ts --outdir dist --target node`;
-await Bun.$`bunx tsc --project tsconfig.build.json`;
+await build();
 
 // 创建 dist/package.json
 const publishPkg = {
@@ -46,18 +46,24 @@ const publishPkg = {
   type: pkg.type,
   main: "./index.js",
   types: "./index.d.ts",
-  exports: {
-    ".": {
-      types: "./index.d.ts",
-      import: "./index.js",
-    },
-  },
+  exports: Object.fromEntries(
+    Object.entries(pkg.exports).map(([key, value]) => [
+      key,
+      typeof value === "object" && value !== null
+        ? {
+            ...value,
+            types: (value as any).types?.replace(/^(\.\/)?dist\//, "./"),
+            import: (value as any).import?.replace(/^(\.\/)?dist\//, "./"),
+          }
+        : value,
+    ]),
+  ),
   peerDependencies: pkg.peerDependencies,
 };
 
 writeFileSync(
   join("dist", "package.json"),
-  JSON.stringify(publishPkg, null, 2)
+  JSON.stringify(publishPkg, null, 2),
 );
 
 // 复制 LICENSE 文件到 dist

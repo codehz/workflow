@@ -1,14 +1,6 @@
 // index.ts - 导出公开API
 
-export {
-  // 异常类
-  NonRetryableError,
-} from "./errors.js";
-export { DisabledWorkflowStorage } from "./storages/disabled.js";
-export {
-  // 存储实现类
-  InMemoryWorkflowStorage,
-} from "./storages/in-memory.js";
+export { NonRetryableError } from "./errors.js";
 export {
   // 工作流基类
   WorkflowEntrypoint,

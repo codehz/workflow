@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { InMemoryWorkflowStorage, LocalWorkflow } from "../src/index.js";
+import { LocalWorkflow } from "../src/index.js";
+import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 import { WorkflowEntrypoint } from "../src/types.js";
 
 class RecoverWorkflow extends WorkflowEntrypoint<any, any> {

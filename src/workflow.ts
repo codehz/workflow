@@ -455,8 +455,6 @@ class WorkflowExecutor<
 
     // 清除步骤进度，设置为 queued
     await this.storage.updateInstance(instanceId, {
-      currentStep: undefined,
-      stepState: undefined,
       stepStates: {}, // 清除所有步骤状态
       status: "queued",
     });

@@ -43,8 +43,6 @@ export interface InstanceStatusDetail<Params = any> {
   status: InstanceStatus;
   error?: string;
   output?: any;
-  currentStep?: string;
-  stepState?: any;
   // 保存触发此实例的事件，便于恢复和重启
   event?: WorkflowEvent<Params>;
   // 保存所有步骤的状态，便于恢复

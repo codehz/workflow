@@ -35,14 +35,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     return `${this.getInstanceKey(instanceId)}:output`;
   }
 
-  private getCurrentStepKey(instanceId: string): string {
-    return `${this.getInstanceKey(instanceId)}:currentStep`;
-  }
-
-  private getStepStateKey(instanceId: string): string {
-    return `${this.getInstanceKey(instanceId)}:stepState`;
-  }
-
   private getEventKey(instanceId: string): string {
     return `${this.getInstanceKey(instanceId)}:event`;
   }
@@ -85,24 +77,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       );
     } else {
       await this.client.del(this.getOutputKey(instanceId));
-    }
-
-    if (state.currentStep !== undefined) {
-      await this.client.set(
-        this.getCurrentStepKey(instanceId),
-        this.serialize(state.currentStep),
-      );
-    } else {
-      await this.client.del(this.getCurrentStepKey(instanceId));
-    }
-
-    if (state.stepState !== undefined) {
-      await this.client.set(
-        this.getStepStateKey(instanceId),
-        this.serialize(state.stepState),
-      );
-    } else {
-      await this.client.del(this.getStepStateKey(instanceId));
     }
 
     if (state.event !== undefined) {
@@ -155,20 +129,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       );
     }
 
-    if (updates.currentStep !== undefined) {
-      await this.client.set(
-        this.getCurrentStepKey(instanceId),
-        this.serialize(updates.currentStep),
-      );
-    }
-
-    if (updates.stepState !== undefined) {
-      await this.client.set(
-        this.getStepStateKey(instanceId),
-        this.serialize(updates.stepState),
-      );
-    }
-
     if (updates.event !== undefined) {
       await this.client.set(
         this.getEventKey(instanceId),
@@ -203,15 +163,11 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     }
 
     // 加载其他字段
-    const errorStr = await this.client.get(this.getErrorKey(instanceId));
-    const outputStr = await this.client.get(this.getOutputKey(instanceId));
-    const currentStepStr = await this.client.get(
-      this.getCurrentStepKey(instanceId),
-    );
-    const stepStateStr = await this.client.get(
-      this.getStepStateKey(instanceId),
-    );
-    const eventStr = await this.client.get(this.getEventKey(instanceId));
+    const [errorStr, outputStr, eventStr] = await Promise.all([
+      this.client.get(this.getErrorKey(instanceId)),
+      this.client.get(this.getOutputKey(instanceId)),
+      this.client.get(this.getEventKey(instanceId)),
+    ]);
 
     const result: InstanceStatusDetail = {
       status,
@@ -220,8 +176,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
 
     if (errorStr) result.error = this.deserialize(errorStr);
     if (outputStr) result.output = this.deserialize(outputStr);
-    if (currentStepStr) result.currentStep = this.deserialize(currentStepStr);
-    if (stepStateStr) result.stepState = this.deserialize(stepStateStr);
     if (eventStr) result.event = this.deserialize(eventStr);
 
     return result;
@@ -233,8 +187,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       this.getStepsHashKey(instanceId),
       this.getErrorKey(instanceId),
       this.getOutputKey(instanceId),
-      this.getCurrentStepKey(instanceId),
-      this.getStepStateKey(instanceId),
       this.getEventKey(instanceId),
     );
     await this.client.srem(this.getInstancesSetKey(), instanceId);

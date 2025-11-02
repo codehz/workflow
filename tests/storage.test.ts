@@ -17,8 +17,8 @@ test("内存存储功能", async () => {
   expect(loaded!.output).toBe('test-output');
 
   // 列出实例
-  const list = await storage.listInstances();
-  expect(list).toContain('test-id');
+  const list = await storage.listInstanceSummaries();
+  expect(list.some(item => item.id === 'test-id')).toBe(true);
 
   // 删除实例
   await storage.deleteInstance('test-id');
@@ -26,6 +26,6 @@ test("内存存储功能", async () => {
   expect(afterDelete).toBeNull();
 
   // 再次列出实例，确保为空
-  const listAfterDelete = await storage.listInstances();
+  const listAfterDelete = await storage.listInstanceSummaries();
   expect(listAfterDelete).toEqual([]);
 });

@@ -46,6 +46,11 @@ export interface InstanceStatusDetail<Params = any> {
   stepStates?: Record<string, StepState>;
 }
 
+export interface InstanceSummary {
+  id: string;
+  status: InstanceStatus;
+}
+
 export interface WorkflowInstanceCreateOptions<Params = any> {
   id?: string;
   params?: Params;

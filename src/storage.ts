@@ -1,6 +1,6 @@
 // storage.ts - 存储接口和内存实现
 
-import type { InstanceStatusDetail, StepState } from './types.js';
+import type { InstanceStatusDetail, StepState, InstanceStatus, InstanceSummary } from './types.js';
 
 export interface WorkflowStorage {
   saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
@@ -8,7 +8,8 @@ export interface WorkflowStorage {
   updateStepState(instanceId: string, stepName: string, stepState: StepState): Promise<void>;
   loadInstance(instanceId: string): Promise<InstanceStatusDetail | null>;
   deleteInstance(instanceId: string): Promise<void>;
-  listInstances(): Promise<string[]>;
+  listInstanceSummaries(): Promise<InstanceSummary[]>;
+  listActiveInstances(): Promise<string[]>;
 }
 
 export class InMemoryWorkflowStorage implements WorkflowStorage {
@@ -47,8 +48,14 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
     this.storage.delete(instanceId);
   }
 
-  async listInstances(): Promise<string[]> {
-    return Array.from(this.storage.keys());
+  async listInstanceSummaries(): Promise<InstanceSummary[]> {
+    return Array.from(this.storage.entries()).map(([id, state]) => ({ id, status: state.status }));
+  }
+
+  async listActiveInstances(): Promise<string[]> {
+    return Array.from(this.storage.entries())
+      .filter(([_, state]) => state.status !== 'terminated' && state.status !== 'complete')
+      .map(([id]) => id);
   }
 }
 
@@ -73,7 +80,11 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
     return new Promise(() => {}); // 无限等待，模拟系统关闭
   }
 
-  async listInstances(): Promise<string[]> {
+  async listInstanceSummaries(): Promise<InstanceSummary[]> {
+    return new Promise(() => {}); // 无限等待，模拟系统关闭
+  }
+
+  async listActiveInstances(): Promise<string[]> {
     return new Promise(() => {}); // 无限等待，模拟系统关闭
   }
 }

@@ -375,17 +375,12 @@ class WorkflowExecutor<Env, Params = any, EventMap extends Record<string, any> =
   }
 
   async recoverAll(): Promise<void> {
-    // 获取所有实例ID
-    const instanceIds = await this.storage.listInstances();
+    // 获取所有活跃实例ID
+    const activeInstanceIds = await this.storage.listActiveInstances();
 
-    for (const id of instanceIds) {
+    for (const id of activeInstanceIds) {
       const state = await this.storage.loadInstance(id);
       if (!state) continue;
-
-      // 只恢复未完成的状态
-      if (state.status === 'complete' || state.status === 'terminated' || state.status === 'errored') {
-        continue;
-      }
 
       if (!state.event) {
         console.warn(`Instance ${id} has no event stored, skipping recovery`);

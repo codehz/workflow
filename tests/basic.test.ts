@@ -1,6 +1,6 @@
-import { test, expect } from "bun:test";
-import { WorkflowEntrypoint, LocalWorkflow } from "../src/index.js";
+import { expect, test } from "bun:test";
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
+import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 
 // 简单工作流类用于基本测试
 class SimpleWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
@@ -156,7 +156,7 @@ class PausableWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
 
 test("恢复未完成的工作流", async () => {
   const storage = new (
-    await import("../src/storage.js")
+    await import("../src/storages/in-memory.js")
   ).InMemoryWorkflowStorage();
   const workflow = new LocalWorkflow(PausableWorkflow, {}, storage);
 

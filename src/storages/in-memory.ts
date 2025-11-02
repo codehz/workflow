@@ -1,12 +1,11 @@
-// storage.ts - 存储接口和内存实现
+// src/storages/in-memory.ts - 内存存储实现
 
-import { DISABLED_PROMISE } from "./constants.js";
 import type {
   InstanceStatusDetail,
   InstanceSummary,
   StepState,
   WorkflowStorage,
-} from "./types.js";
+} from "../types.js";
 
 export class InMemoryWorkflowStorage implements WorkflowStorage {
   private storage = new Map<string, InstanceStatusDetail>();
@@ -68,45 +67,5 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
           state.status !== "terminated" && state.status !== "complete",
       )
       .map(([id]) => id);
-  }
-}
-
-export class DisabledWorkflowStorage implements WorkflowStorage {
-  async saveInstance(
-    instanceId: string,
-    state: InstanceStatusDetail,
-  ): Promise<void> {
-    return DISABLED_PROMISE;
-  }
-
-  async updateInstance(
-    instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
-  ): Promise<void> {
-    return DISABLED_PROMISE;
-  }
-
-  async updateStepState(
-    instanceId: string,
-    stepName: string,
-    stepState: StepState,
-  ): Promise<void> {
-    return DISABLED_PROMISE;
-  }
-
-  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
-    return DISABLED_PROMISE;
-  }
-
-  async deleteInstance(instanceId: string): Promise<void> {
-    return DISABLED_PROMISE;
-  }
-
-  async listInstanceSummaries(): Promise<InstanceSummary[]> {
-    return DISABLED_PROMISE;
-  }
-
-  async listActiveInstances(): Promise<string[]> {
-    return DISABLED_PROMISE;
   }
 }

@@ -2,7 +2,8 @@
 
 import { DISABLED_PROMISE } from "./constants.js";
 import { NonRetryableError } from "./errors.js";
-import { DisabledWorkflowStorage, InMemoryWorkflowStorage } from "./storage.js";
+import { DisabledWorkflowStorage } from "./storages/disabled.js";
+import { InMemoryWorkflowStorage } from "./storages/in-memory.js";
 import type {
   InstanceStatusDetail,
   Workflow,

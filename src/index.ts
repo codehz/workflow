@@ -1,5 +1,18 @@
 // index.ts - 导出公开API
 
+export {
+  // 异常类
+  NonRetryableError,
+} from "./errors.js";
+export { DisabledWorkflowStorage } from "./storages/disabled.js";
+export {
+  // 存储实现类
+  InMemoryWorkflowStorage,
+} from "./storages/in-memory.js";
+export {
+  // 工作流基类
+  WorkflowEntrypoint,
+} from "./types.js";
 export type {
   InstanceStatus,
   InstanceStatusDetail,
@@ -15,23 +28,6 @@ export type {
   // 存储接口
   WorkflowStorage,
 } from "./types.js";
-
-export {
-  DisabledWorkflowStorage,
-  // 存储实现类
-  InMemoryWorkflowStorage,
-} from "./storage.js";
-
-export {
-  // 工作流基类
-  WorkflowEntrypoint,
-} from "./types.js";
-
-export {
-  // 异常类
-  NonRetryableError,
-} from "./errors.js";
-
 export {
   // 核心工作流类
   LocalWorkflow,

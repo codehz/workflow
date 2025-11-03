@@ -141,20 +141,39 @@ await instance.sendEvent({
 
 ```typescript
 interface WorkflowStorage {
-  saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
+  saveInstance(
+    instanceId: string,
+    state: InstanceInfo<unknown, unknown>,
+  ): Promise<void>;
   updateInstance(
     instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
+    updates: Partial<InstanceInfo<unknown, unknown>>,
   ): Promise<void>;
   updateStepState(
     instanceId: string,
     stepName: string,
     stepState: StepState,
   ): Promise<void>;
-  loadInstance(instanceId: string): Promise<InstanceStatusDetail | null>;
+  loadInstance(
+    instanceId: string,
+  ): Promise<InstanceInfo<unknown, unknown> | null>;
+  loadStepState(
+    instanceId: string,
+    stepName: string,
+  ): Promise<StepState | null>;
   deleteInstance(instanceId: string): Promise<void>;
+  clearAllStepStates(instanceId: string): Promise<void>;
   listInstanceSummaries(): Promise<InstanceSummary[]>;
   listActiveInstances(): Promise<string[]>;
+  savePendingEvent(
+    instanceId: string,
+    eventType: string,
+    payload: any,
+  ): Promise<void>;
+  loadPendingEvent(
+    instanceId: string,
+    eventType: string,
+  ): Promise<{ payload: any } | null>;
 }
 ```
 

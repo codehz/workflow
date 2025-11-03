@@ -94,7 +94,7 @@ test("步骤重试机制", async () => {
   const instance = await workflow.create();
 
   // 等待完成（包括重试）
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
   const status = await instance.status();
   expect(status.status).toBe("complete");

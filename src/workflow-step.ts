@@ -12,15 +12,23 @@ class LocalWorkflowStep<
 > implements WorkflowStep<EventMap>
 {
   private shutdownRequested = false;
+  private eventListeners = new Map<string, (payload: any) => void>();
 
   constructor(
     private instanceId: string,
     private storage: WorkflowStorage,
-    private onEvent: (type: string) => Promise<any>,
   ) {}
 
   shutdown(): void {
     this.shutdownRequested = true;
+  }
+
+  resolveEvent(type: string, payload: any): void {
+    const listener = this.eventListeners.get(type);
+    if (listener) {
+      listener(payload);
+      this.eventListeners.delete(type);
+    }
   }
 
   private checkShutdown(): Promise<never> | void {
@@ -274,11 +282,16 @@ class LocalWorkflowStep<
 
     try {
       const result = await Promise.race([
-        this.onEvent(eventType),
-        new Promise((_, reject) =>
+        new Promise<EventMap[K]>((resolve) => {
+          this.eventListeners.set(eventType, resolve);
+        }),
+        new Promise<EventMap[K]>((_, reject) =>
           setTimeout(() => reject(new Error("Timeout")), timeoutMs),
         ),
       ]);
+
+      // 清理监听器
+      this.eventListeners.delete(eventType);
 
       // 保存成功状态
       await this.checkShutdown();
@@ -288,8 +301,11 @@ class LocalWorkflowStep<
       });
 
       await this.checkShutdown();
-      return result as EventMap[K];
+      return result;
     } catch (error) {
+      // 清理监听器
+      this.eventListeners.delete(eventType);
+
       // 保存失败状态
       await this.checkShutdown();
       await this.storage.updateStepState(this.instanceId, name, {

@@ -16,10 +16,6 @@ class WorkflowExecutor<
   Result = void,
 > {
   private running = new Map<string, LocalWorkflowStep<EventMap>>();
-  private eventListeners = new Map<
-    string,
-    Map<string, (payload: any) => void>
-  >();
 
   constructor(
     private workflowClass: new (
@@ -64,18 +60,7 @@ class WorkflowExecutor<
     event: WorkflowEvent<Params>,
   ): Promise<void> {
     const workflow = new this.workflowClass(this.env);
-    const step = new LocalWorkflowStep<EventMap>(
-      instanceId,
-      this.storage,
-      async (type) => {
-        return new Promise((resolve) => {
-          if (!this.eventListeners.has(instanceId)) {
-            this.eventListeners.set(instanceId, new Map());
-          }
-          this.eventListeners.get(instanceId)!.set(type, resolve);
-        });
-      },
-    );
+    const step = new LocalWorkflowStep<EventMap>(instanceId, this.storage);
 
     const runPromise = (async () => {
       try {
@@ -165,13 +150,9 @@ class WorkflowExecutor<
   }
 
   sendEvent(instanceId: string, type: string, payload: any): void {
-    const listeners = this.eventListeners.get(instanceId);
-    if (listeners) {
-      const listener = listeners.get(type);
-      if (listener) {
-        listener(payload);
-        listeners.delete(type);
-      }
+    const step = this.running.get(instanceId);
+    if (step) {
+      step.resolveEvent(type, payload);
     }
   }
 

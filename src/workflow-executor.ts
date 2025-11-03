@@ -1,4 +1,3 @@
-import { DisabledWorkflowStorage } from "./storages/disabled.js";
 import type {
   InstanceInfo,
   WorkflowEvent,
@@ -16,17 +15,29 @@ class WorkflowExecutor<
   Result = void,
 > {
   private running = new Map<string, LocalWorkflowStep<EventMap>>();
+  private isShutdown = false;
 
   constructor(
     private workflowClass: new (
       env: Env,
     ) => WorkflowEntrypoint<Env, Params, EventMap, Result>,
     private env: Env,
-    private _storage: WorkflowStorage,
+    public readonly storage: WorkflowStorage,
   ) {}
 
-  get storage(): WorkflowStorage {
-    return this._storage;
+  async updateInstanceStatus(
+    id: string,
+    updates: Partial<InstanceInfo<unknown, unknown>>,
+  ): Promise<void> {
+    if (this.isShutdown) throw new Error("Executor is shutdown");
+    await this.storage.updateInstance(id, updates);
+  }
+
+  async getInstanceStatus(
+    id: string,
+  ): Promise<InstanceInfo<unknown, unknown> | null> {
+    if (this.isShutdown) throw new Error("Executor is shutdown");
+    return await this.storage.loadInstance(id);
   }
 
   async createInstance(
@@ -198,7 +209,7 @@ class WorkflowExecutor<
       step.shutdown();
     }
     this.running.clear();
-    this._storage = new DisabledWorkflowStorage();
+    this.isShutdown = true;
   }
 }
 

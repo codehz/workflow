@@ -13,13 +13,9 @@ class LocalWorkflowInstance<
     private executor: WorkflowExecutor<Env, Params, EventMap, Result>,
   ) {}
 
-  get storage() {
-    return this.executor.storage;
-  }
-
   async pause(): Promise<void> {
     try {
-      await this.storage.updateInstance(this.id, { status: "paused" });
+      await this.executor.updateInstanceStatus(this.id, { status: "paused" });
     } catch (error) {
       // Instance not found, ignore
     }
@@ -31,7 +27,9 @@ class LocalWorkflowInstance<
 
   async terminate(): Promise<void> {
     try {
-      await this.storage.updateInstance(this.id, { status: "terminated" });
+      await this.executor.updateInstanceStatus(this.id, {
+        status: "terminated",
+      });
     } catch (error) {
       // Instance not found, ignore
     }
@@ -42,7 +40,7 @@ class LocalWorkflowInstance<
   }
 
   async status(): Promise<InstanceInfo<Params, Result>> {
-    const state = await this.storage.loadInstance(this.id);
+    const state = await this.executor.getInstanceStatus(this.id);
     if (!state) throw new Error(`Instance ${this.id} not found`);
     return state as InstanceInfo<Params, Result>;
   }

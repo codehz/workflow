@@ -75,36 +75,29 @@ const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
 ```typescript
 import { WorkflowEntrypoint } from "@codehz/workflow";
 
-const MyWorkflow = WorkflowEntrypoint.create<Env, Params, EventMap, Result>(
-  async function(event, step) {
-    // 执行步骤
-    const result = await step.do("step-name", async () => {
-      // 你的逻辑
-      return "result";
-    });
+const MyWorkflow = WorkflowEntrypoint.create<
+  { apiKey: string }, // Env
+  { userId: number }, // Params
+  { "user-input": string }, // EventMap
+  string // Result
+>(async function (event, step) {
+  // 执行步骤
+  const result = await step.do("step-name", async () => {
+    // 你的逻辑
+    return "result";
+  });
 
-    // 睡眠
-    await step.sleep("wait", "5 seconds");
+  // 睡眠
+  await step.sleep("wait", "5 seconds");
 
-    // 等待事件
-    const eventData = await step.waitForEvent("wait-input", {
-      type: "user-input",
-      // 你的逻辑
-      return "result";
-    });
+  // 等待事件
+  const eventData = await step.waitForEvent("wait-input", {
+    type: "user-input",
+    timeout: "1 hour",
+  });
 
-    // 睡眠
-    await step.sleep("wait", "5 seconds");
-
-    // 等待事件
-    const eventData = await step.waitForEvent("wait-input", {
-      type: "user-input",
-      timeout: "1 hour",
-    });
-
-    return result;
-  }
-}
+  return result;
+});
 ```
 
 ### 创建和运行工作流实例

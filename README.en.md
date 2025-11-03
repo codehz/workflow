@@ -78,26 +78,29 @@ const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
 import { WorkflowEntrypoint } from "@codehz/workflow";
 import type { WorkflowEvent, WorkflowStep } from "@codehz/workflow";
 
-const MyWorkflow = WorkflowEntrypoint.create<Env, Params, EventMap, Result>(
-  async function(event, step) {
-    // Execute steps
-    const result = await step.do("step-name", async () => {
-      // Your logic
-      return "result";
-    });
+const MyWorkflow = WorkflowEntrypoint.create<
+  { apiKey: string }, // Env
+  { userId: number }, // Params
+  { "user-input": string }, // EventMap
+  string // Result
+>(async function (event, step) {
+  // Execute steps
+  const result = await step.do("step-name", async () => {
+    // Your logic
+    return "result";
+  });
 
-    // Sleep
-    await step.sleep("wait", "5 seconds");
+  // Sleep
+  await step.sleep("wait", "5 seconds");
 
-    // Wait for events
-    const eventData = await step.waitForEvent("wait-input", {
-      type: "user-input",
-      timeout: "1 hour",
-    });
+  // Wait for events
+  const eventData = await step.waitForEvent("wait-input", {
+    type: "user-input",
+    timeout: "1 hour",
+  });
 
-    return result;
-  }
-}
+  return result;
+});
 ```
 
 ### Creating and Running Workflow Instances

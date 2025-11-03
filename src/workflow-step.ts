@@ -19,10 +19,16 @@ class LocalWorkflowStep<
     private storage: WorkflowStorage,
   ) {}
 
+  /**
+   * @internal
+   */
   shutdown(): void {
     this.shutdownRequested = true;
   }
 
+  /**
+   * @internal
+   */
   resolveEvent(type: string, payload: any): void {
     const listener = this.eventListeners.get(type);
     if (listener) {

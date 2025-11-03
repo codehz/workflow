@@ -347,6 +347,43 @@ export abstract class WorkflowEntrypoint<
   constructor(protected env: Env) {}
 
   /**
+   * 创建一个继承WorkflowEntrypoint的类，从函数自动生成
+   * @param fn 执行函数，this为环境对象
+   * @returns 继承WorkflowEntrypoint的类
+   * @example
+   * ```ts
+   * const MyWorkflow = WorkflowEntrypoint.create<Env, { task: string }, { approval: boolean }, string>(
+   *   async function(event, step) {
+   *     // this 指向 env，可以访问 apiKey
+   *     console.log('API Key:', this.apiKey);
+   *
+   *     await step.do('process', async () => {
+   *       return `Processed ${event.payload.task}`;
+   *     });
+   *
+   *     const approval = await step.waitForEvent('approval', { type: 'approval' });
+   *     return approval ? 'Approved' : 'Rejected';
+   *   }
+   * );
+   * ```
+   */
+  static create<Env, Params, EventMap extends Record<string, any>, Result>(
+    fn: (
+      event: WorkflowEvent<Params>,
+      step: WorkflowStep<EventMap>,
+    ) => Promise<Result>,
+  ): new (env: Env) => WorkflowEntrypoint<Env, Params, EventMap, Result> {
+    return class extends WorkflowEntrypoint<Env, Params, EventMap, Result> {
+      async run(
+        event: WorkflowEvent<Params>,
+        step: WorkflowStep<EventMap>,
+      ): Promise<Result> {
+        return fn.call(this.env, event, step);
+      }
+    };
+  }
+
+  /**
    * 运行工作流的抽象方法
    * @param event 触发事件
    * @param step 步骤执行器

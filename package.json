@@ -16,7 +16,7 @@
     "url": "https://github.com/codehz/workflow.git"
   },
   "scripts": {
-    "build": "bun run scripts/dist.ts",
+    "build": "bun run scripts/build.ts",
     "example": "bun run examples/example.ts",
     "advanced": "bun run examples/advanced-example.ts",
     "recover-example": "bun run examples/recover-example.ts",

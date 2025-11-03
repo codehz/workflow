@@ -22,7 +22,7 @@
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { build } from "./dist.js";
+import { build } from "./build.js";
 
 // 获取最新 git tag
 const tagOutput = await Bun.$`git describe --tags --abbrev=0`;

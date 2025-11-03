@@ -53,7 +53,7 @@ test("内存存储功能", async () => {
     result: "step-result",
   });
   const withStep = await storage.loadInstance("test-id");
-  expect(withStep!.stepStates!.step1).toEqual({
+  expect(withStep!.stepStates!["step1"]).toEqual({
     status: "completed",
     result: "step-result",
   });
@@ -123,7 +123,7 @@ test("Bun Redis存储功能", async () => {
     result: "step-result",
   });
   const withStep = await storage.loadInstance("test-id");
-  expect(withStep!.stepStates!.step1).toEqual({
+  expect(withStep!.stepStates!["step1"]).toEqual({
     status: "completed",
     result: "step-result",
   });
@@ -183,7 +183,7 @@ test("Bun SQLite存储功能", async () => {
     result: "step-result",
   });
   const withStep = await storage.loadInstance("test-id");
-  expect(withStep!.stepStates!.step1).toEqual({
+  expect(withStep!.stepStates!["step1"]).toEqual({
     status: "completed",
     result: "step-result",
   });

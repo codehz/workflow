@@ -15,7 +15,7 @@ class RetryWorkflow extends WorkflowEntrypoint<
 > {
   private attempts = 0;
 
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     return await step.do(
       "retry-step",
       {
@@ -39,7 +39,7 @@ class NonRetryWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   void
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     return await step.do("non-retry-step", async () => {
       throw new NonRetryableError("Non-retryable error");
     });
@@ -53,7 +53,7 @@ class ErrorHandlingWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   { result: string }
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     try {
       await step.do("error-step", async () => {
         throw new Error("Test error");
@@ -74,7 +74,7 @@ class StandardizedErrorWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   { errorType: string; errorMessage: string }
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     try {
       await step.do("error-step", async () => {
         throw "string error"; // 抛出非 Error 对象

@@ -35,7 +35,7 @@ class NestedStepWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   { result: string }
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     return await step.do("outer-step", async () => {
       const innerResult = await step.do("inner-step", async () => {
         return "inner result";
@@ -52,27 +52,13 @@ class ParallelStepWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   { results: number[] }
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     const results = await Promise.all([
       step.do("step1", async () => 1),
       step.do("step2", async () => 2),
       step.do("step3", async () => 3),
     ]);
     return { results };
-  }
-}
-
-// 测试字符串 duration 和 sleepUntil
-class StringDurationWorkflow extends WorkflowEntrypoint<
-  {},
-  {},
-  Record<string, any>,
-  { slept: boolean }
-> {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
-    await step.sleep("sleep-str", "100 milliseconds"); // 无效单位，测试 default case
-    await step.sleepUntil("sleep-past", Date.now() - 1000); // 过去的时间，delay <= 0
-    return { slept: true };
   }
 }
 
@@ -83,7 +69,7 @@ class InvalidDurationWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   { slept: boolean }
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     await step.sleep("sleep-str", "100 milliseconds");
     return { slept: true };
   }
@@ -96,7 +82,7 @@ class PastTimestampWorkflow extends WorkflowEntrypoint<
   Record<string, any>,
   { slept: boolean }
 > {
-  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
     await step.sleepUntil("sleep-past", new Date(Date.now() - 1000));
     return { slept: true };
   }

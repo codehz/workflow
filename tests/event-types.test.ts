@@ -1,6 +1,9 @@
-import { expect, test } from "bun:test";
-import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
-import { WorkflowEntrypoint } from "../src/index.js";
+import { expect, expectTypeOf, test } from "bun:test";
+import type {
+  WorkflowEntrypoint,
+  WorkflowEvent,
+  WorkflowStep,
+} from "../src/index.js";
 
 // 定义测试用的EventMap
 type TestEventMap = {
@@ -9,37 +12,6 @@ type TestEventMap = {
   timeout: void;
   "data-update": { id: number; value: string };
 };
-
-// 测试WorkflowEntrypoint的类型推断
-class TestWorkflow extends WorkflowEntrypoint<{}, {}, TestEventMap, any> {
-  async run(
-    event: WorkflowEvent<{}>,
-    step: WorkflowStep<TestEventMap>,
-  ): Promise<any> {
-    // 测试waitForEvent的类型推断
-    const userInput = await step.waitForEvent("step1", { type: "user-input" });
-    // userInput应该是string类型
-    expect(typeof userInput).toBe("string");
-
-    const confirmed = await step.waitForEvent("step2", {
-      type: "confirmation",
-    });
-    // confirmed应该是boolean类型
-    expect(typeof confirmed).toBe("boolean");
-
-    const timeoutResult = await step.waitForEvent("step3", { type: "timeout" });
-    // timeout应该是void/undefined
-    expect(timeoutResult).toBeUndefined();
-
-    const dataUpdate = await step.waitForEvent("step4", {
-      type: "data-update",
-    });
-    // dataUpdate应该是{ id: number; value: string }
-    expect(typeof dataUpdate).toBe("object");
-    expect(typeof dataUpdate.id).toBe("number");
-    expect(typeof dataUpdate.value).toBe("string");
-  }
-}
 
 // 类型测试：验证EventMap的键类型
 test("EventMap 键类型正确推断", () => {
@@ -128,4 +100,51 @@ test("sendEvent 有效载荷类型正确强制执行", () => {
   // instance.sendEvent({ type: 'data-update', payload: { id: 1, value: 'test' } }); // object
 
   expect(instance).toBeUndefined();
+});
+
+// 类型测试：验证WorkflowEntrypoint的类型推断
+test("WorkflowEntrypoint 类型推断", () => {
+  // 测试WorkflowEntrypoint可以与TestEventMap一起使用
+  expectTypeOf<WorkflowEntrypoint<{}, {}, TestEventMap, any>>().toEqualTypeOf<
+    WorkflowEntrypoint<{}, {}, TestEventMap, any>
+  >();
+
+  // 测试run方法的类型
+  type TestWorkflow = WorkflowEntrypoint<{}, {}, TestEventMap, any>;
+  expectTypeOf<TestWorkflow["run"]>().toBeFunction();
+
+  // 测试参数类型匹配
+  type RunParams = Parameters<TestWorkflow["run"]>;
+  expectTypeOf<RunParams[0]>().toEqualTypeOf<WorkflowEvent<{}>>();
+  expectTypeOf<RunParams[1]>().toEqualTypeOf<WorkflowStep<TestEventMap>>();
+});
+
+// 类型测试：验证WorkflowStep的事件类型推断
+test("WorkflowStep 事件类型推断", () => {
+  type Step = WorkflowStep<TestEventMap>;
+
+  // 测试waitForEvent方法存在
+  expectTypeOf<Step["waitForEvent"]>().toBeFunction();
+
+  // 创建一个类型检查函数来验证waitForEvent的返回类型
+  // 这个函数不会运行，但TypeScript会在编译时检查类型
+  const typeCheck = (step: Step) => {
+    // 这些赋值会在编译时验证类型是否正确
+    const userInput: Promise<string> = step.waitForEvent("step1", {
+      type: "user-input",
+    });
+    const confirmed: Promise<boolean> = step.waitForEvent("step2", {
+      type: "confirmation",
+    });
+    const timeoutResult: Promise<void> = step.waitForEvent("step3", {
+      type: "timeout",
+    });
+    const dataUpdate: Promise<{ id: number; value: string }> =
+      step.waitForEvent("step4", { type: "data-update" });
+
+    return { userInput, confirmed, timeoutResult, dataUpdate };
+  };
+
+  // 验证函数存在
+  expectTypeOf(typeCheck).toBeFunction();
 });

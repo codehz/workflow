@@ -4,7 +4,7 @@ import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 import { WorkflowEntrypoint } from "../src/types.js";
 
 class RecoverWorkflow extends WorkflowEntrypoint<any, any, any, string> {
-  async run(event: any, step: any) {
+  async run(_event: any, step: any) {
     await step.do("step1", async () => {
       console.log("Executing step1");
       return "result1";

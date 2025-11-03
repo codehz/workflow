@@ -22,8 +22,8 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @returns 永不解决的 Promise
    */
   async saveInstance(
-    instanceId: string,
-    state: InstanceStatusDetail,
+    _instanceId: string,
+    _state: InstanceStatusDetail,
   ): Promise<void> {
     return DISABLED_PROMISE;
   }
@@ -33,7 +33,9 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @returns 永不解决的 Promise
    */
-  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
+  async loadInstance(
+    _instanceId: string,
+  ): Promise<InstanceStatusDetail | null> {
     return DISABLED_PROMISE;
   }
 
@@ -44,8 +46,8 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @returns 永不解决的 Promise
    */
   async updateInstance(
-    instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
+    _instanceId: string,
+    _updates: Partial<InstanceStatusDetail>,
   ): Promise<void> {
     return DISABLED_PROMISE;
   }
@@ -58,9 +60,9 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @returns 永不解决的 Promise
    */
   async updateStepState(
-    instanceId: string,
-    stepName: string,
-    stepState: StepState,
+    _instanceId: string,
+    _stepName: string,
+    _stepState: StepState,
   ): Promise<void> {
     return DISABLED_PROMISE;
   }
@@ -70,7 +72,7 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @returns 永不解决的 Promise
    */
-  async deleteInstance(instanceId: string): Promise<void> {
+  async deleteInstance(_instanceId: string): Promise<void> {
     return DISABLED_PROMISE;
   }
 

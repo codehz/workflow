@@ -135,7 +135,7 @@ test("自定义实例ID", async () => {
 
 test("获取工作流实例", async () => {
   const workflow = new LocalWorkflow(SimpleWorkflow);
-  const instance1 = await workflow.create({
+  await workflow.create({
     id: "test-get-instance",
     params: { value: 7 },
   });

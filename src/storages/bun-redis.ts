@@ -307,6 +307,7 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       this.client.del(
         this.getStatusKey(instanceId),
         this.getStepsHashKey(instanceId),
+        this.getPendingEventsHashKey(instanceId),
         this.getErrorKey(instanceId),
         this.getOutputKey(instanceId),
         this.getEventKey(instanceId),

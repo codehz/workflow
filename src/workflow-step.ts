@@ -125,10 +125,15 @@ class LocalWorkflowStep<
           throw new Error(errorMessage);
         }
         // 等待重试
-        const delay =
+        const baseDelay =
           typeof config!.retries!.delay === "number"
             ? config!.retries!.delay
             : 1000;
+        const backoff = config!.retries!.backoff || "constant";
+        const delay =
+          backoff === "exponential"
+            ? baseDelay * Math.pow(2, attempts - 1)
+            : baseDelay;
         const retryEndTime = Date.now() + delay;
 
         await this.checkShutdown();

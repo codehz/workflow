@@ -137,3 +137,61 @@ test("步骤失败时抛出标准化错误", async () => {
   expect(status.output!.errorType).toBe("Error"); // 应该捕获到 Error 实例
   expect(status.output!.errorMessage).toBe("string error");
 });
+
+// 指数退避重试测试工作流
+class ExponentialBackoffWorkflow extends WorkflowEntrypoint<
+  {},
+  {},
+  Record<string, any>,
+  { result: string; timestamps: number[] }
+> {
+  private attempts = 0;
+  private timestamps: number[] = [];
+
+  async run(_event: WorkflowEvent<{}>, step: WorkflowStep) {
+    const result = await step.do(
+      "exponential-retry-step",
+      {
+        retries: { limit: 2, delay: 50, backoff: "exponential" },
+      },
+      async () => {
+        this.attempts++;
+        this.timestamps.push(Date.now());
+        if (this.attempts < 3) {
+          throw new Error("Temporary failure");
+        }
+        return "success";
+      },
+    );
+    return { result, timestamps: this.timestamps };
+  }
+}
+
+test("指数退避重试机制", async () => {
+  const workflow = new LocalWorkflow(ExponentialBackoffWorkflow);
+  const instance = await workflow.create();
+
+  // 等待完成（包括重试）
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  const status = await instance.status();
+  expect(status.status).toBe("complete");
+  expect(status.output!.result).toBe("success");
+
+  // 验证时间戳，确认指数退避
+  const timestamps = status.output!.timestamps;
+  expect(timestamps.length).toBe(3); // 初始尝试 + 2次重试
+
+  // 计算重试间隔
+  const retryDelays = [];
+  for (let i = 1; i < timestamps.length; i++) {
+    retryDelays.push(timestamps[i]! - timestamps[i - 1]!);
+  }
+
+  // 验证指数退避：第一次重试约50ms，第二次重试约100ms
+  expect(retryDelays.length).toBe(2);
+  expect(retryDelays[0]).toBeGreaterThanOrEqual(45); // 第一次重试：50ms，允许5ms误差
+  expect(retryDelays[0]).toBeLessThanOrEqual(70);
+  expect(retryDelays[1]).toBeGreaterThanOrEqual(95); // 第二次重试：100ms，允许5ms误差
+  expect(retryDelays[1]).toBeLessThanOrEqual(120);
+});

@@ -15,12 +15,11 @@ class WorkflowExecutor<
   EventMap extends Record<string, any> = Record<string, any>,
   Result = void,
 > {
-  private running = new Map<string, Promise<void>>();
+  private running = new Map<string, LocalWorkflowStep<EventMap>>();
   private eventListeners = new Map<
     string,
     Map<string, (payload: any) => void>
   >();
-  private isShutdown = false;
 
   constructor(
     private workflowClass: new (
@@ -76,7 +75,6 @@ class WorkflowExecutor<
           this.eventListeners.get(instanceId)!.set(type, resolve);
         });
       },
-      () => this.isShutdown,
     );
 
     const runPromise = (async () => {
@@ -92,10 +90,14 @@ class WorkflowExecutor<
           status: "errored",
           error: getErrorMessage(error),
         });
+      } finally {
+        if (this.running.get(instanceId) === step) {
+          this.running.delete(instanceId);
+        }
       }
     })();
 
-    this.running.set(instanceId, runPromise);
+    this.running.set(instanceId, step);
     await runPromise;
   }
 
@@ -119,7 +121,28 @@ class WorkflowExecutor<
     await this.startInstance(instanceId, state.event as WorkflowEvent<Params>);
   }
 
+  async pauseInstance(instanceId: string): Promise<void> {
+    const step = this.running.get(instanceId);
+    if (step) {
+      step.shutdown();
+      await this.storage.updateInstance(instanceId, { status: "paused" });
+    }
+  }
+
+  async terminateInstance(instanceId: string): Promise<void> {
+    const step = this.running.get(instanceId);
+    if (step) {
+      step.shutdown();
+      await this.storage.updateInstance(instanceId, { status: "terminated" });
+    }
+  }
+
   async restartInstance(instanceId: string): Promise<void> {
+    const step = this.running.get(instanceId);
+    if (step) {
+      step.shutdown();
+    }
+
     const state = await this.storage.loadInstance(instanceId);
     if (!state) throw new Error(`Instance ${instanceId} not found`);
 
@@ -189,7 +212,11 @@ class WorkflowExecutor<
   }
 
   async shutdown(): Promise<void> {
-    this.isShutdown = true;
+    // Shutdown all running instances
+    for (const [, step] of this.running) {
+      step.shutdown();
+    }
+    this.running.clear();
     this._storage = new DisabledWorkflowStorage();
   }
 }

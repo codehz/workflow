@@ -11,12 +11,21 @@ class LocalWorkflowStep<
   EventMap extends Record<string, any> = Record<string, any>,
 > implements WorkflowStep<EventMap>
 {
+  private shutdownRequested = false;
+
   constructor(
     private instanceId: string,
     private storage: WorkflowStorage,
     private onEvent: (type: string) => Promise<any>,
-    private isShutdown: () => boolean,
   ) {}
+
+  shutdown(): void {
+    this.shutdownRequested = true;
+  }
+
+  private checkShutdown(): Promise<never> | void {
+    if (this.shutdownRequested) return DISABLED_PROMISE as Promise<never>;
+  }
 
   async do<T>(name: string, callback: () => Promise<T>): Promise<T>;
   async do<T>(
@@ -41,9 +50,11 @@ class LocalWorkflowStep<
     );
     if (existingStepState) {
       if (existingStepState.status === "completed") {
+        await this.checkShutdown();
         return existingStepState.result as T;
       }
       if (existingStepState.status === "failed") {
+        await this.checkShutdown();
         throw new Error(existingStepState.error);
       }
       if (existingStepState.status === "retrying") {
@@ -52,7 +63,7 @@ class LocalWorkflowStep<
         if (now < existingStepState.retryEndTime) {
           // 还在等待重试，继续等待
           const remaining = existingStepState.retryEndTime - now;
-          if (this.isShutdown()) return DISABLED_PROMISE;
+          await this.checkShutdown();
           await new Promise((resolve) => setTimeout(resolve, remaining));
         }
         // 重试时间已到，继续执行
@@ -68,6 +79,7 @@ class LocalWorkflowStep<
     const initialRetries = existingStepState?.retries || 0;
 
     // 设置为 running
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "running",
       retries: initialRetries,
@@ -75,7 +87,7 @@ class LocalWorkflowStep<
 
     let attempts = initialRetries;
 
-    if (this.isShutdown()) return DISABLED_PROMISE;
+    await this.checkShutdown();
 
     while (attempts <= maxRetries) {
       try {
@@ -86,11 +98,13 @@ class LocalWorkflowStep<
         if (error instanceof NonRetryableError || attempts > maxRetries) {
           const errorMessage = getErrorMessage(error);
           // 保存失败状态
+          await this.checkShutdown();
           await this.storage.updateStepState(this.instanceId, name, {
             status: "failed",
             error: errorMessage,
             retries: attempts,
           });
+          await this.checkShutdown();
           throw new Error(errorMessage);
         }
         // 等待重试
@@ -100,17 +114,18 @@ class LocalWorkflowStep<
             : 1000;
         const retryEndTime = Date.now() + delay;
 
-        // 保存重试等待状态
+        await this.checkShutdown();
         await this.storage.updateStepState(this.instanceId, name, {
           status: "retrying",
           retryEndTime,
           retries: attempts,
         });
 
-        if (this.isShutdown()) return DISABLED_PROMISE;
+        await this.checkShutdown();
         await new Promise((resolve) => setTimeout(resolve, delay));
 
         // 重试时间已到，设置为运行状态
+        await this.checkShutdown();
         await this.storage.updateStepState(this.instanceId, name, {
           status: "running",
           retries: attempts,
@@ -123,11 +138,13 @@ class LocalWorkflowStep<
     }
 
     // 保存成功状态
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "completed",
       result,
     });
 
+    await this.checkShutdown();
     return result!;
   }
 
@@ -144,6 +161,7 @@ class LocalWorkflowStep<
       name,
     );
     if (existingStepState && existingStepState.status === "completed") {
+      await this.checkShutdown();
       return;
     }
 
@@ -151,6 +169,7 @@ class LocalWorkflowStep<
     const endTime = now + ms;
 
     // 保存 sleeping 状态
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "sleeping",
       sleepEndTime: endTime,
@@ -158,11 +177,12 @@ class LocalWorkflowStep<
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
-      if (this.isShutdown()) return DISABLED_PROMISE;
+      await this.checkShutdown();
       await new Promise((resolve) => setTimeout(resolve, remaining));
     }
 
     // 标记为完成
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "completed",
       result: undefined,
@@ -187,12 +207,14 @@ class LocalWorkflowStep<
       name,
     );
     if (existingStepState && existingStepState.status === "completed") {
+      await this.checkShutdown();
       return;
     }
 
     const endTime = target.getTime();
 
     // 保存 sleeping 状态
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "sleeping",
       sleepEndTime: endTime,
@@ -200,11 +222,12 @@ class LocalWorkflowStep<
 
     const remaining = endTime - Date.now();
     if (remaining > 0) {
-      if (this.isShutdown()) return DISABLED_PROMISE;
+      await this.checkShutdown();
       await new Promise((resolve) => setTimeout(resolve, remaining));
     }
 
     // 标记为完成
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "completed",
       result: undefined,
@@ -229,22 +252,25 @@ class LocalWorkflowStep<
     );
     if (existingStepState) {
       if (existingStepState.status === "completed") {
+        await this.checkShutdown();
         return existingStepState.result;
       }
       if (existingStepState.status === "failed") {
+        await this.checkShutdown();
         throw new Error(existingStepState.error);
       }
       // 如果是 waitingForEvent，继续等待
     }
 
     // 保存 waiting 状态
+    await this.checkShutdown();
     await this.storage.updateStepState(this.instanceId, name, {
       status: "waitingForEvent",
       waitEventType: eventType,
       waitTimeout: timeoutMs,
     });
 
-    if (this.isShutdown()) return DISABLED_PROMISE;
+    await this.checkShutdown();
 
     try {
       const result = await Promise.race([
@@ -255,18 +281,22 @@ class LocalWorkflowStep<
       ]);
 
       // 保存成功状态
+      await this.checkShutdown();
       await this.storage.updateStepState(this.instanceId, name, {
         status: "completed",
         result,
       });
 
+      await this.checkShutdown();
       return result as EventMap[K];
     } catch (error) {
       // 保存失败状态
+      await this.checkShutdown();
       await this.storage.updateStepState(this.instanceId, name, {
         status: "failed",
         error: getErrorMessage(error),
       });
+      await this.checkShutdown();
       throw error;
     }
   }

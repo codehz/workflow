@@ -1,38 +1,35 @@
 // recover-example.ts - 自动恢复示例
 
-import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
 import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 // 定义工作流类
-class RecoverableWorkflow extends WorkflowEntrypoint<
+const RecoverableWorkflow = WorkflowEntrypoint.create<
   {},
   { value: number },
   Record<string, any>,
   number
-> {
-  async run(event: WorkflowEvent<{ value: number }>, step: WorkflowStep) {
-    console.log("Starting workflow with value:", event.payload.value);
+>(async function (event, step) {
+  console.log("Starting workflow with value:", event.payload.value);
 
-    // 步骤1: 计算
-    const result1 = await step.do("calculate", async () => {
-      return event.payload.value * 2;
-    });
+  // 步骤1: 计算
+  const result1 = await step.do("calculate", async () => {
+    return event.payload.value * 2;
+  });
 
-    console.log("Step 1 result:", result1);
+  console.log("Step 1 result:", result1);
 
-    // 步骤2: 睡眠
-    await step.sleep("sleep", "1 second");
+  // 步骤2: 睡眠
+  await step.sleep("sleep", "1 second");
 
-    // 步骤3: 最终计算
-    const result2 = await step.do("finalize", async () => {
-      return result1 + 10;
-    });
+  // 步骤3: 最终计算
+  const result2 = await step.do("finalize", async () => {
+    return result1 + 10;
+  });
 
-    console.log("Final result:", result2);
-    return result2;
-  }
-}
+  console.log("Final result:", result2);
+  return result2;
+});
 
 // 使用示例
 async function main() {

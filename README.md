@@ -40,29 +40,24 @@ bun install @codehz/workflow
 
 ⚠️ **重要**: 此库使用严格的TypeScript类型系统，默认类型参数设置为`unknown`以确保类型安全。
 
-在使用时，您**必须在 WorkflowEntrypoint 子类中显式指定所有类型参数**，但在创建 LocalWorkflow 时，可以省略类型参数，因为它们会从第一个参数自动推导：
+在使用时，您**必须在 WorkflowEntrypoint.create 调用中显式指定所有类型参数**：
 
 ```typescript
 // ❌ 错误：使用默认unknown类型
-class MyWorkflow extends WorkflowEntrypoint {
+const MyWorkflow = WorkflowEntrypoint.create(async function (event, step) {
   // 这会导致类型错误，因为Env, Params, Result都是unknown
-}
+});
 
 // ✅ 正确：显式指定所有类型参数
-class MyWorkflow extends WorkflowEntrypoint<
+const MyWorkflow = WorkflowEntrypoint.create<
   { apiKey: string }, // Env
   { userId: number }, // Params
   { "user-input": string }, // EventMap
   { result: string } // Result
-> {
-  async run(
-    event: WorkflowEvent<{ userId: number }>,
-    step: WorkflowStep<{ "user-input": string }>,
-  ): Promise<{ result: string }> {
-    // 您的逻辑
-    return { result: "done" };
-  }
-}
+>(async function (event, step) {
+  // 您的逻辑
+  return { result: "done" };
+});
 
 // 创建工作流时可以省略类型参数，它们会从第一个参数自动推导
 const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
@@ -79,15 +74,21 @@ const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
 
 ```typescript
 import { WorkflowEntrypoint } from "@codehz/workflow";
-import type { WorkflowEvent, WorkflowStep } from "@codehz/workflow";
 
-class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap, Result> {
-  async run(
-    event: WorkflowEvent<Params>,
-    step: WorkflowStep<EventMap>,
-  ): Promise<Result> {
+const MyWorkflow = WorkflowEntrypoint.create<Env, Params, EventMap, Result>(
+  async function(event, step) {
     // 执行步骤
     const result = await step.do("step-name", async () => {
+      // 你的逻辑
+      return "result";
+    });
+
+    // 睡眠
+    await step.sleep("wait", "5 seconds");
+
+    // 等待事件
+    const eventData = await step.waitForEvent("wait-input", {
+      type: "user-input",
       // 你的逻辑
       return "result";
     });

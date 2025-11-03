@@ -42,29 +42,24 @@ Please follow the [Conventional Commits](https://conventionalcommits.org/) speci
 
 ⚠️ **Important**: This library uses a strict TypeScript type system with default type parameters set to `unknown` for type safety.
 
-When using it, you **must explicitly specify all type parameters in the WorkflowEntrypoint subclass**, but when creating LocalWorkflow, you can omit type parameters as they will be inferred from the first parameter:
+When using it, you **must explicitly specify all type parameters in the WorkflowEntrypoint.create call**:
 
 ```typescript
 // ❌ Wrong: Using default unknown types
-class MyWorkflow extends WorkflowEntrypoint {
+const MyWorkflow = WorkflowEntrypoint.create(async function (event, step) {
   // This will cause type errors because Env, Params, Result are all unknown
-}
+});
 
 // ✅ Correct: Explicitly specify all type parameters
-class MyWorkflow extends WorkflowEntrypoint<
+const MyWorkflow = WorkflowEntrypoint.create<
   { apiKey: string }, // Env
   { userId: number }, // Params
   { "user-input": string }, // EventMap
   { result: string } // Result
-> {
-  async run(
-    event: WorkflowEvent<{ userId: number }>,
-    step: WorkflowStep<{ "user-input": string }>,
-  ): Promise<{ result: string }> {
-    // Your logic
-    return { result: "done" };
-  }
-}
+>(async function (event, step) {
+  // Your logic
+  return { result: "done" };
+});
 
 // When creating workflows, you can omit type parameters as they will be inferred from the first parameter
 const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
@@ -83,11 +78,8 @@ const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
 import { WorkflowEntrypoint } from "@codehz/workflow";
 import type { WorkflowEvent, WorkflowStep } from "@codehz/workflow";
 
-class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap, Result> {
-  async run(
-    event: WorkflowEvent<Params>,
-    step: WorkflowStep<EventMap>,
-  ): Promise<Result> {
+const MyWorkflow = WorkflowEntrypoint.create<Env, Params, EventMap, Result>(
+  async function(event, step) {
     // Execute steps
     const result = await step.do("step-name", async () => {
       // Your logic

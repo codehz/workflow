@@ -1,10 +1,9 @@
 // advanced-example.ts - 高级示例：展示恢复和事件功能
 
-import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
 import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
-class AdvancedWorkflow extends WorkflowEntrypoint<
+const AdvancedWorkflow = WorkflowEntrypoint.create<
   {},
   { task: string },
   { "user-confirmation": { approved: boolean; notes?: string } },
@@ -13,46 +12,44 @@ class AdvancedWorkflow extends WorkflowEntrypoint<
     confirmed: { approved: boolean; notes?: string };
     completedAt: Date;
   }
-> {
-  async run(event: WorkflowEvent<{ task: string }>, step: WorkflowStep) {
-    console.log(`Starting advanced workflow for task: ${event.payload.task}`);
+>(async function (event, step) {
+  console.log(`Starting advanced workflow for task: ${event.payload.task}`);
 
-    // 步骤1: 初始化
-    const initResult = await step.do("initialize", async () => {
-      console.log("Initializing...");
-      return { initialized: true, task: event.payload.task };
-    });
+  // 步骤1: 初始化
+  const initResult = await step.do("initialize", async () => {
+    console.log("Initializing...");
+    return { initialized: true, task: event.payload.task };
+  });
 
-    // 步骤2: 模拟长时间运行的任务
-    console.log("Starting long task...");
-    await step.sleep("long-task", "1 second");
+  // 步骤2: 模拟长时间运行的任务
+  console.log("Starting long task...");
+  await step.sleep("long-task", "1 second");
 
-    const taskResult = await step.do("process-task", async () => {
-      console.log(`Processing task: ${initResult.task}`);
-      return `Completed: ${initResult.task}`;
-    });
+  const taskResult = await step.do("process-task", async () => {
+    console.log(`Processing task: ${initResult.task}`);
+    return `Completed: ${initResult.task}`;
+  });
 
-    // 步骤3: 等待用户输入
-    console.log("Waiting for user confirmation...");
-    const userInput = await step.waitForEvent("wait-confirmation", {
-      type: "user-confirmation",
-      timeout: "10 seconds", // 简化为10秒用于测试
-    });
+  // 步骤3: 等待用户输入
+  console.log("Waiting for user confirmation...");
+  const userInput = await step.waitForEvent("wait-confirmation", {
+    type: "user-confirmation",
+    timeout: "10 seconds", // 简化为10秒用于测试
+  });
 
-    console.log("Received user input:", userInput);
+  console.log("Received user input:", userInput);
 
-    // 步骤4: 完成
-    const finalResult = await step.do("finalize", async () => {
-      return {
-        task: taskResult,
-        confirmed: userInput,
-        completedAt: new Date(),
-      };
-    });
+  // 步骤4: 完成
+  const finalResult = await step.do("finalize", async () => {
+    return {
+      task: taskResult,
+      confirmed: userInput,
+      completedAt: new Date(),
+    };
+  });
 
-    return finalResult;
-  }
-}
+  return finalResult;
+});
 
 async function main() {
   const storage = new InMemoryWorkflowStorage();

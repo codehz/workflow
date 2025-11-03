@@ -46,6 +46,17 @@ class LocalWorkflowStep<
       if (existingStepState.status === "failed") {
         throw new Error(existingStepState.error);
       }
+      if (existingStepState.status === "retrying") {
+        // 检查重试等待时间是否已到
+        const now = Date.now();
+        if (now < existingStepState.retryEndTime) {
+          // 还在等待重试，继续等待
+          const remaining = existingStepState.retryEndTime - now;
+          if (this.isShutdown()) return DISABLED_PROMISE;
+          await new Promise((resolve) => setTimeout(resolve, remaining));
+        }
+        // 重试时间已到，继续执行
+      }
       // 如果是 running 或其他，继续
     }
 
@@ -87,8 +98,19 @@ class LocalWorkflowStep<
           typeof config!.retries!.delay === "number"
             ? config!.retries!.delay
             : 1000;
+        const retryEndTime = Date.now() + delay;
+
+        // 保存重试等待状态
+        await this.storage.updateStepState(this.instanceId, name, {
+          status: "retrying",
+          retryEndTime,
+          retries: attempts,
+        });
+
+        if (this.isShutdown()) return DISABLED_PROMISE;
         await new Promise((resolve) => setTimeout(resolve, delay));
-        // 更新重试次数
+
+        // 重试时间已到，设置为运行状态
         await this.storage.updateStepState(this.instanceId, name, {
           status: "running",
           retries: attempts,

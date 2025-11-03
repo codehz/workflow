@@ -58,6 +58,11 @@ export type StepState =
       waitEventType: string;
       waitTimeout?: number;
       retries?: number;
+    }
+  | {
+      status: "retrying"; // 等待重试
+      retryEndTime: number;
+      retries: number;
     };
 
 /**

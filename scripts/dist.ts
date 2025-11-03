@@ -5,6 +5,9 @@ import { readdirSync } from "fs";
 import { join } from "path";
 
 export async function build() {
+  // 清空 dist 目录
+  await $`rm -rf dist`;
+
   // 构建主入口
   await $`bun build src/index.ts --outdir dist --target node`;
 

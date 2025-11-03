@@ -52,6 +52,26 @@ class ErrorHandlingWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
   }
 }
 
+// 标准化错误测试工作流
+class StandardizedErrorWorkflow extends WorkflowEntrypoint<
+  {},
+  { errorType: string; errorMessage: string }
+> {
+  async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
+    try {
+      await step.do("error-step", async () => {
+        throw "string error"; // 抛出非 Error 对象
+      });
+      return { errorType: "none", errorMessage: "" };
+    } catch (error) {
+      return {
+        errorType: error instanceof Error ? "Error" : typeof error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+}
+
 test("步骤重试机制", async () => {
   const workflow = new LocalWorkflow(RetryWorkflow);
   const instance = await workflow.create();
@@ -86,4 +106,17 @@ test("工作流中使用 try catch 捕获错误", async () => {
   const status = await instance.status();
   expect(status.status).toBe("complete");
   expect(status.output.result).toBe("caught: Test error");
+});
+
+test("步骤失败时抛出标准化错误", async () => {
+  const workflow = new LocalWorkflow(StandardizedErrorWorkflow);
+  const instance = await workflow.create();
+
+  // 等待完成
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const status = await instance.status();
+  expect(status.status).toBe("complete");
+  expect(status.output.errorType).toBe("Error"); // 应该捕获到 Error 实例
+  expect(status.output.errorMessage).toBe("string error");
 });

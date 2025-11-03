@@ -88,13 +88,14 @@ class LocalWorkflowStep<
       } catch (error) {
         attempts++;
         if (error instanceof NonRetryableError || attempts > maxRetries) {
+          const errorMessage = getErrorMessage(error);
           // 保存失败状态
           await this.storage.updateStepState(this.instanceId, name, {
             status: "failed",
-            error: getErrorMessage(error),
+            error: errorMessage,
             retries: attempts,
           });
-          throw error;
+          throw new Error(errorMessage);
         }
         // 等待重试
         const delay =

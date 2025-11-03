@@ -56,16 +56,7 @@ class AdvancedWorkflow extends WorkflowEntrypoint<
 
 async function main() {
   const storage = new InMemoryWorkflowStorage();
-  const workflow = new LocalWorkflow<
-    {},
-    { task: string },
-    { "user-confirmation": { approved: boolean; notes?: string } },
-    {
-      task: string;
-      confirmed: { approved: boolean; notes?: string };
-      completedAt: Date;
-    }
-  >(AdvancedWorkflow, {}, storage);
+  const workflow = new LocalWorkflow(AdvancedWorkflow, {}, storage);
 
   // 创建实例
   const instance = await workflow.create({

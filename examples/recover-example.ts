@@ -41,12 +41,7 @@ async function main() {
 
   // 第一次运行：创建工作流实例
   console.log("=== First run ===");
-  const workflow1 = new LocalWorkflow<
-    {},
-    { value: number },
-    Record<string, any>,
-    number
-  >(RecoverableWorkflow, {}, storage);
+  const workflow1 = new LocalWorkflow(RecoverableWorkflow, {}, storage);
 
   const instance1 = await workflow1.create({
     id: "recover-test",
@@ -71,12 +66,7 @@ async function main() {
   console.log("\n=== Simulating app restart ===");
 
   // 创建新的工作流实例，使用相同的存储
-  const workflow2 = new LocalWorkflow<
-    {},
-    { value: number },
-    Record<string, any>,
-    number
-  >(RecoverableWorkflow, {}, storage);
+  const workflow2 = new LocalWorkflow(RecoverableWorkflow, {}, storage);
 
   // 自动恢复所有未完成的工作流
   console.log("Recovering workflows...");

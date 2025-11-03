@@ -42,7 +42,7 @@ Please follow the [Conventional Commits](https://conventionalcommits.org/) speci
 
 ⚠️ **Important**: This library uses a strict TypeScript type system with default type parameters set to `unknown` for type safety.
 
-When using it, you **must explicitly specify all type parameters** and cannot rely on defaults:
+When using it, you **must explicitly specify all type parameters in the WorkflowEntrypoint subclass**, but when creating LocalWorkflow, you can omit type parameters as they will be inferred from the first parameter:
 
 ```typescript
 // ❌ Wrong: Using default unknown types
@@ -66,13 +66,8 @@ class MyWorkflow extends WorkflowEntrypoint<
   }
 }
 
-// When creating workflows, also specify types
-const workflow = new LocalWorkflow<
-  { apiKey: string }, // Env
-  { userId: number }, // Params
-  { "user-input": string }, // EventMap
-  { result: string } // Result
->(MyWorkflow, { apiKey: "your-key" }, storage);
+// When creating workflows, you can omit type parameters as they will be inferred from the first parameter
+const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
 ```
 
 ### Default Type Parameters
@@ -123,11 +118,7 @@ import { InMemoryWorkflowStorage } from "@codehz/workflow/storages/in-memory";
 const storage = new InMemoryWorkflowStorage();
 
 // Create workflow
-const workflow = new LocalWorkflow<MyEnv, MyParams, MyEventMap, MyResult>(
-  MyWorkflow,
-  env,
-  storage,
-);
+const workflow = new LocalWorkflow(MyWorkflow, env, storage);
 
 // Create instance
 const instance = await workflow.create({

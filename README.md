@@ -40,7 +40,7 @@ bun install @codehz/workflow
 
 ⚠️ **重要**: 此库使用严格的TypeScript类型系统，默认类型参数设置为`unknown`以确保类型安全。
 
-在使用时，您**必须显式指定所有类型参数**，不能依赖默认值：
+在使用时，您**必须在 WorkflowEntrypoint 子类中显式指定所有类型参数**，但在创建 LocalWorkflow 时，可以省略类型参数，因为它们会从第一个参数自动推导：
 
 ```typescript
 // ❌ 错误：使用默认unknown类型
@@ -64,13 +64,8 @@ class MyWorkflow extends WorkflowEntrypoint<
   }
 }
 
-// 创建工作流时也需要指定类型
-const workflow = new LocalWorkflow<
-  { apiKey: string }, // Env
-  { userId: number }, // Params
-  { "user-input": string }, // EventMap
-  { result: string } // Result
->(MyWorkflow, { apiKey: "your-key" }, storage);
+// 创建工作流时可以省略类型参数，它们会从第一个参数自动推导
+const workflow = new LocalWorkflow(MyWorkflow, { apiKey: "your-key" }, storage);
 ```
 
 ### 默认类型参数
@@ -121,11 +116,7 @@ import { InMemoryWorkflowStorage } from "@codehz/workflow/storages/in-memory";
 const storage = new InMemoryWorkflowStorage();
 
 // 创建工作流
-const workflow = new LocalWorkflow<MyEnv, MyParams, MyEventMap, MyResult>(
-  MyWorkflow,
-  env,
-  storage,
-);
+const workflow = new LocalWorkflow(MyWorkflow, env, storage);
 
 // 创建实例
 const instance = await workflow.create({

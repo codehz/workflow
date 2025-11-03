@@ -7,7 +7,12 @@ import {
 } from "../src/index.js";
 
 // 重试测试工作流
-class RetryWorkflow extends WorkflowEntrypoint<{}, {}> {
+class RetryWorkflow extends WorkflowEntrypoint<
+  {},
+  {},
+  Record<string, any>,
+  string
+> {
   private attempts = 0;
 
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
@@ -28,7 +33,12 @@ class RetryWorkflow extends WorkflowEntrypoint<{}, {}> {
 }
 
 // 非重试错误测试
-class NonRetryWorkflow extends WorkflowEntrypoint<{}, {}> {
+class NonRetryWorkflow extends WorkflowEntrypoint<
+  {},
+  {},
+  Record<string, any>,
+  void
+> {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
     return await step.do("non-retry-step", async () => {
       throw new NonRetryableError("Non-retryable error");
@@ -37,7 +47,12 @@ class NonRetryWorkflow extends WorkflowEntrypoint<{}, {}> {
 }
 
 // 错误处理测试工作流
-class ErrorHandlingWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
+class ErrorHandlingWorkflow extends WorkflowEntrypoint<
+  {},
+  {},
+  Record<string, any>,
+  { result: string }
+> {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
     try {
       await step.do("error-step", async () => {
@@ -55,6 +70,8 @@ class ErrorHandlingWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
 // 标准化错误测试工作流
 class StandardizedErrorWorkflow extends WorkflowEntrypoint<
   {},
+  {},
+  Record<string, any>,
   { errorType: string; errorMessage: string }
 > {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
@@ -105,7 +122,7 @@ test("工作流中使用 try catch 捕获错误", async () => {
 
   const status = await instance.status();
   expect(status.status).toBe("complete");
-  expect(status.output.result).toBe("caught: Test error");
+  expect(status.output!.result).toBe("caught: Test error");
 });
 
 test("步骤失败时抛出标准化错误", async () => {
@@ -117,6 +134,6 @@ test("步骤失败时抛出标准化错误", async () => {
 
   const status = await instance.status();
   expect(status.status).toBe("complete");
-  expect(status.output.errorType).toBe("Error"); // 应该捕获到 Error 实例
-  expect(status.output.errorMessage).toBe("string error");
+  expect(status.output!.errorType).toBe("Error"); // 应该捕获到 Error 实例
+  expect(status.output!.errorMessage).toBe("string error");
 });

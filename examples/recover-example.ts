@@ -5,7 +5,12 @@ import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 // 定义工作流类
-class RecoverableWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
+class RecoverableWorkflow extends WorkflowEntrypoint<
+  {},
+  { value: number },
+  Record<string, any>,
+  number
+> {
   async run(event: WorkflowEvent<{ value: number }>, step: WorkflowStep) {
     console.log("Starting workflow with value:", event.payload.value);
 
@@ -36,11 +41,12 @@ async function main() {
 
   // 第一次运行：创建工作流实例
   console.log("=== First run ===");
-  const workflow1 = new LocalWorkflow<{}, { value: number }>(
-    RecoverableWorkflow,
+  const workflow1 = new LocalWorkflow<
     {},
-    storage,
-  );
+    { value: number },
+    Record<string, any>,
+    number
+  >(RecoverableWorkflow, {}, storage);
 
   const instance1 = await workflow1.create({
     id: "recover-test",
@@ -65,11 +71,12 @@ async function main() {
   console.log("\n=== Simulating app restart ===");
 
   // 创建新的工作流实例，使用相同的存储
-  const workflow2 = new LocalWorkflow<{}, { value: number }>(
-    RecoverableWorkflow,
+  const workflow2 = new LocalWorkflow<
     {},
-    storage,
-  );
+    { value: number },
+    Record<string, any>,
+    number
+  >(RecoverableWorkflow, {}, storage);
 
   // 自动恢复所有未完成的工作流
   console.log("Recovering workflows...");

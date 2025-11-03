@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { WorkflowEntrypoint } from "../src/types.js";
 import { LocalWorkflow } from "../src/workflow.js";
 
-class TestWorkflow extends WorkflowEntrypoint<any, any> {
+class TestWorkflow extends WorkflowEntrypoint<any, any, any, void> {
   async run(event: any, step: any) {
     await step.do("step1", async () => {
       console.log("Executing step1");

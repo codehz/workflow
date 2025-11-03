@@ -291,13 +291,14 @@ function parseDuration(duration: string): number {
 
 class LocalWorkflowInstance<
   Env,
-  Params = any,
+  Params = unknown,
   EventMap extends Record<string, any> = Record<string, any>,
-> implements WorkflowInstance<Params, EventMap>
+  Result = void,
+> implements WorkflowInstance<Params, EventMap, Result>
 {
   constructor(
     public id: string,
-    private executor: WorkflowExecutor<Env, Params>,
+    private executor: WorkflowExecutor<Env, Params, EventMap, Result>,
   ) {}
 
   get storage(): WorkflowStorage {
@@ -328,10 +329,10 @@ class LocalWorkflowInstance<
     await this.executor.restartInstance(this.id);
   }
 
-  async status(): Promise<InstanceStatusDetail<Params>> {
+  async status(): Promise<InstanceStatusDetail<Params, Result>> {
     const state = await this.storage.loadInstance(this.id);
     if (!state) throw new Error(`Instance ${this.id} not found`);
-    return state;
+    return state as InstanceStatusDetail<Params, Result>;
   }
 
   async sendEvent<K extends keyof EventMap>(options: {
@@ -344,8 +345,9 @@ class LocalWorkflowInstance<
 
 class WorkflowExecutor<
   Env,
-  Params = any,
+  Params = unknown,
   EventMap extends Record<string, any> = Record<string, any>,
+  Result = void,
 > {
   private running = new Map<string, Promise<void>>();
   private eventListeners = new Map<
@@ -357,7 +359,7 @@ class WorkflowExecutor<
   constructor(
     private workflowClass: new (
       env: Env,
-    ) => WorkflowEntrypoint<Env, Params, EventMap>,
+    ) => WorkflowEntrypoint<Env, Params, EventMap, Result>,
     private env: Env,
     private _storage: WorkflowStorage,
   ) {}
@@ -368,7 +370,7 @@ class WorkflowExecutor<
 
   async createInstance(
     options: WorkflowInstanceCreateOptions<Params>,
-  ): Promise<WorkflowInstance<Params, EventMap>> {
+  ): Promise<WorkflowInstance<Params, EventMap, Result>> {
     const id = options.id || generateId();
     const event: WorkflowEvent<Params> = {
       payload: options.params || ({} as Params),
@@ -376,7 +378,7 @@ class WorkflowExecutor<
       instanceId: id,
     };
 
-    const initialState: InstanceStatusDetail<Params> = {
+    const initialState: InstanceStatusDetail<Params, Result> = {
       status: "queued",
       output: undefined,
       // 将触发事件保存到状态中，便于恢复/重启
@@ -384,7 +386,10 @@ class WorkflowExecutor<
     };
     await this.storage.saveInstance(id, initialState);
 
-    const instance = new LocalWorkflowInstance<Env, Params, EventMap>(id, this);
+    const instance = new LocalWorkflowInstance<Env, Params, EventMap, Result>(
+      id,
+      this,
+    );
     this.startInstance(id, event);
     return instance;
   }
@@ -445,7 +450,7 @@ class WorkflowExecutor<
     this.running.delete(instanceId);
 
     // 重新启动执行（从存储的事件开始）
-    await this.startInstance(instanceId, state.event);
+    await this.startInstance(instanceId, state.event as WorkflowEvent<Params>);
   }
 
   async restartInstance(instanceId: string): Promise<void> {
@@ -465,7 +470,7 @@ class WorkflowExecutor<
     this.running.delete(instanceId);
 
     // 启动新执行
-    await this.startInstance(instanceId, state.event);
+    await this.startInstance(instanceId, state.event as WorkflowEvent<Params>);
   }
 
   sendEvent(instanceId: string, type: string, payload: any): void {
@@ -502,15 +507,17 @@ class WorkflowExecutor<
         state.status === "waitingForPause"
       ) {
         // 对于其他未完成状态，重新启动执行
-        await this.startInstance(id, state.event);
+        await this.startInstance(id, state.event as WorkflowEvent<Params>);
       }
     }
   }
 
-  async getInstance(id: string): Promise<WorkflowInstance<Params, EventMap>> {
+  async getInstance(
+    id: string,
+  ): Promise<WorkflowInstance<Params, EventMap, Result>> {
     const state = await this.storage.loadInstance(id);
     if (!state) throw new Error("Instance not found");
-    return new LocalWorkflowInstance<Env, Params, EventMap>(id, this);
+    return new LocalWorkflowInstance<Env, Params, EventMap, Result>(id, this);
   }
 
   async shutdown(): Promise<void> {
@@ -538,11 +545,12 @@ function getErrorMessage(error: unknown): string {
  */
 export class LocalWorkflow<
   Env,
-  Params = any,
+  Params = unknown,
   EventMap extends Record<string, any> = Record<string, any>,
-> implements Workflow<Params, EventMap>
+  Result = void,
+> implements Workflow<Params, EventMap, Result>
 {
-  private executor: WorkflowExecutor<Env, Params, EventMap>;
+  private executor: WorkflowExecutor<Env, Params, EventMap, Result>;
 
   /**
    * 构造函数
@@ -561,11 +569,13 @@ export class LocalWorkflow<
    * ```
    */
   constructor(
-    workflowClass: new (env: Env) => WorkflowEntrypoint<Env, Params, EventMap>,
+    workflowClass: new (
+      env: Env,
+    ) => WorkflowEntrypoint<Env, Params, EventMap, Result>,
     env: Env = {} as Env,
     storage: WorkflowStorage = new InMemoryWorkflowStorage(),
   ) {
-    this.executor = new WorkflowExecutor<Env, Params, EventMap>(
+    this.executor = new WorkflowExecutor<Env, Params, EventMap, Result>(
       workflowClass,
       env,
       storage,
@@ -586,7 +596,7 @@ export class LocalWorkflow<
    */
   async create(
     options?: WorkflowInstanceCreateOptions<Params>,
-  ): Promise<WorkflowInstance<Params, EventMap>> {
+  ): Promise<WorkflowInstance<Params, EventMap, Result>> {
     return this.executor.createInstance(options || {});
   }
 
@@ -604,7 +614,7 @@ export class LocalWorkflow<
    */
   async createBatch(
     batch: WorkflowInstanceCreateOptions<Params>[],
-  ): Promise<WorkflowInstance<Params, EventMap>[]> {
+  ): Promise<WorkflowInstance<Params, EventMap, Result>[]> {
     return Promise.all(batch.map((options) => this.create(options)));
   }
 
@@ -617,7 +627,7 @@ export class LocalWorkflow<
    * const instance = await workflow.get('instance-id');
    * ```
    */
-  async get(id: string): Promise<WorkflowInstance<Params, EventMap>> {
+  async get(id: string): Promise<WorkflowInstance<Params, EventMap, Result>> {
     return this.executor.getInstance(id);
   }
 

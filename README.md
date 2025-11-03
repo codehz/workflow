@@ -36,7 +36,49 @@ bun install @codehz/workflow
 - `test:` 测试相关
 - `chore:` 构建过程或辅助工具的变动
 
-## 使用
+## 类型安全警告
+
+⚠️ **重要**: 此库使用严格的TypeScript类型系统，默认类型参数设置为`unknown`以确保类型安全。
+
+在使用时，您**必须显式指定所有类型参数**，不能依赖默认值：
+
+```typescript
+// ❌ 错误：使用默认unknown类型
+class MyWorkflow extends WorkflowEntrypoint {
+  // 这会导致类型错误，因为Env, Params, Result都是unknown
+}
+
+// ✅ 正确：显式指定所有类型参数
+class MyWorkflow extends WorkflowEntrypoint<
+  { apiKey: string }, // Env
+  { userId: number }, // Params
+  { "user-input": string }, // EventMap
+  { result: string } // Result
+> {
+  async run(
+    event: WorkflowEvent<{ userId: number }>,
+    step: WorkflowStep<{ "user-input": string }>,
+  ): Promise<{ result: string }> {
+    // 您的逻辑
+    return { result: "done" };
+  }
+}
+
+// 创建工作流时也需要指定类型
+const workflow = new LocalWorkflow<
+  { apiKey: string }, // Env
+  { userId: number }, // Params
+  { "user-input": string }, // EventMap
+  { result: string } // Result
+>(MyWorkflow, { apiKey: "your-key" }, storage);
+```
+
+### 默认类型参数
+
+- `Env = unknown` - 环境类型，默认为`unknown`强制您指定环境对象类型
+- `Params = unknown` - 参数类型，默认为`unknown`强制您指定事件参数类型
+- `EventMap = Record<string, any>` - 事件映射类型，提供合理的默认值
+- `Result = void` - 结果类型，默认为`void`表示工作流默认不返回值
 
 ### 定义工作流
 
@@ -44,8 +86,11 @@ bun install @codehz/workflow
 import { WorkflowEntrypoint } from "@codehz/workflow";
 import type { WorkflowEvent, WorkflowStep } from "@codehz/workflow";
 
-class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap> {
-  async run(event: WorkflowEvent<Params>, step: WorkflowStep<EventMap>) {
+class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap, Result> {
+  async run(
+    event: WorkflowEvent<Params>,
+    step: WorkflowStep<EventMap>,
+  ): Promise<Result> {
     // 执行步骤
     const result = await step.do("step-name", async () => {
       // 你的逻辑
@@ -76,7 +121,11 @@ import { InMemoryWorkflowStorage } from "@codehz/workflow/storages/in-memory";
 const storage = new InMemoryWorkflowStorage();
 
 // 创建工作流
-const workflow = new LocalWorkflow(MyWorkflow, env, storage);
+const workflow = new LocalWorkflow<MyEnv, MyParams, MyEventMap, MyResult>(
+  MyWorkflow,
+  env,
+  storage,
+);
 
 // 创建实例
 const instance = await workflow.create({
@@ -129,6 +178,13 @@ interface WorkflowStorage {
 
 工作流的基类，您需要继承此类并实现 `run` 方法。
 
+**泛型参数** (必须显式指定):
+
+- `Env`: 环境类型 (默认: `unknown`)
+- `Params`: 参数类型 (默认: `unknown`)
+- `EventMap`: 事件映射类型 (默认: `Record<string, any>`)
+- `Result`: 返回结果类型 (默认: `void`)
+
 ### WorkflowStep
 
 提供步骤执行方法：
@@ -141,7 +197,7 @@ interface WorkflowStorage {
 
 ### WorkflowInstance
 
-实例管理：
+实例管理。泛型参数与 `LocalWorkflow` 相同。
 
 - `pause()`: 暂停实例执行
 - `resume()`: 恢复实例执行
@@ -152,7 +208,7 @@ interface WorkflowStorage {
 
 ### LocalWorkflow
 
-工作流管理：
+工作流管理。泛型参数与 `WorkflowEntrypoint` 相同。
 
 - `create(options)`: 创建实例
 - `createBatch(batch)`: 批量创建

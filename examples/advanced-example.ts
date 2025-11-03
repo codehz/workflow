@@ -4,7 +4,16 @@ import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
 import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
-class AdvancedWorkflow extends WorkflowEntrypoint<{}, { task: string }> {
+class AdvancedWorkflow extends WorkflowEntrypoint<
+  {},
+  { task: string },
+  { "user-confirmation": { approved: boolean; notes?: string } },
+  {
+    task: string;
+    confirmed: { approved: boolean; notes?: string };
+    completedAt: Date;
+  }
+> {
   async run(event: WorkflowEvent<{ task: string }>, step: WorkflowStep) {
     console.log(`Starting advanced workflow for task: ${event.payload.task}`);
 
@@ -47,11 +56,16 @@ class AdvancedWorkflow extends WorkflowEntrypoint<{}, { task: string }> {
 
 async function main() {
   const storage = new InMemoryWorkflowStorage();
-  const workflow = new LocalWorkflow<{}, { task: string }>(
-    AdvancedWorkflow,
+  const workflow = new LocalWorkflow<
     {},
-    storage,
-  );
+    { task: string },
+    { "user-confirmation": { approved: boolean; notes?: string } },
+    {
+      task: string;
+      confirmed: { approved: boolean; notes?: string };
+      completedAt: Date;
+    }
+  >(AdvancedWorkflow, {}, storage);
 
   // 创建实例
   const instance = await workflow.create({

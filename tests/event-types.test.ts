@@ -1,4 +1,4 @@
-import { test, expect } from "bun:test";
+import { expect, test } from "bun:test";
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
 import { WorkflowEntrypoint } from "../src/index.js";
 
@@ -11,7 +11,7 @@ type TestEventMap = {
 };
 
 // 测试WorkflowEntrypoint的类型推断
-class TestWorkflow extends WorkflowEntrypoint<{}, {}, TestEventMap> {
+class TestWorkflow extends WorkflowEntrypoint<{}, {}, TestEventMap, any> {
   async run(
     event: WorkflowEvent<{}>,
     step: WorkflowStep<TestEventMap>,

@@ -5,7 +5,12 @@ import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 import { InMemoryWorkflowStorage } from "../src/storages/in-memory.js";
 
 // 定义工作流类
-class MyWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
+class MyWorkflow extends WorkflowEntrypoint<
+  {},
+  { message: string },
+  Record<string, any>,
+  { result: string; timestamp: Date }
+> {
   async run(event: WorkflowEvent<{ message: string }>, step: WorkflowStep) {
     console.log("Starting workflow with message:", event.payload.message);
 
@@ -31,11 +36,12 @@ class MyWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
 async function main() {
   // 创建工作流实例，使用内存存储
   const storage = new InMemoryWorkflowStorage();
-  const workflow = new LocalWorkflow<{}, { message: string }>(
-    MyWorkflow,
+  const workflow = new LocalWorkflow<
     {},
-    storage,
-  );
+    { message: string },
+    Record<string, any>,
+    { result: string; timestamp: Date }
+  >(MyWorkflow, {}, storage);
 
   // 创建工作流实例
   const instance = await workflow.create({

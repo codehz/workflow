@@ -1,9 +1,14 @@
-import { test, expect } from "bun:test";
-import { WorkflowEntrypoint, LocalWorkflow } from "../src/index.js";
+import { expect, test } from "bun:test";
 import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
+import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 
 // 简单工作流类用于批量测试
-class SimpleWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
+class SimpleWorkflow extends WorkflowEntrypoint<
+  {},
+  { value: number },
+  Record<string, any>,
+  number
+> {
   async run(event: WorkflowEvent<{ value: number }>, step: WorkflowStep) {
     return await step.do("simple", async () => {
       return event.payload.value * 2;

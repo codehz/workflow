@@ -38,7 +38,49 @@ Please follow the [Conventional Commits](https://conventionalcommits.org/) speci
 - `test:` Test-related
 - `chore:` Build process or auxiliary tool changes
 
-## Usage
+## Type Safety Warning
+
+⚠️ **Important**: This library uses a strict TypeScript type system with default type parameters set to `unknown` for type safety.
+
+When using it, you **must explicitly specify all type parameters** and cannot rely on defaults:
+
+```typescript
+// ❌ Wrong: Using default unknown types
+class MyWorkflow extends WorkflowEntrypoint {
+  // This will cause type errors because Env, Params, Result are all unknown
+}
+
+// ✅ Correct: Explicitly specify all type parameters
+class MyWorkflow extends WorkflowEntrypoint<
+  { apiKey: string }, // Env
+  { userId: number }, // Params
+  { "user-input": string }, // EventMap
+  { result: string } // Result
+> {
+  async run(
+    event: WorkflowEvent<{ userId: number }>,
+    step: WorkflowStep<{ "user-input": string }>,
+  ): Promise<{ result: string }> {
+    // Your logic
+    return { result: "done" };
+  }
+}
+
+// When creating workflows, also specify types
+const workflow = new LocalWorkflow<
+  { apiKey: string }, // Env
+  { userId: number }, // Params
+  { "user-input": string }, // EventMap
+  { result: string } // Result
+>(MyWorkflow, { apiKey: "your-key" }, storage);
+```
+
+### Default Type Parameters
+
+- `Env = unknown` - Environment type, defaults to `unknown` to force you to specify environment object types
+- `Params = unknown` - Parameter type, defaults to `unknown` to force you to specify event parameter types
+- `EventMap = Record<string, any>` - Event mapping type, provides reasonable defaults
+- `Result = void` - Result type, defaults to `void` indicating workflows don't return values by default
 
 ### Defining Workflows
 
@@ -46,8 +88,11 @@ Please follow the [Conventional Commits](https://conventionalcommits.org/) speci
 import { WorkflowEntrypoint } from "@codehz/workflow";
 import type { WorkflowEvent, WorkflowStep } from "@codehz/workflow";
 
-class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap> {
-  async run(event: WorkflowEvent<Params>, step: WorkflowStep<EventMap>) {
+class MyWorkflow extends WorkflowEntrypoint<Env, Params, EventMap, Result> {
+  async run(
+    event: WorkflowEvent<Params>,
+    step: WorkflowStep<EventMap>,
+  ): Promise<Result> {
     // Execute steps
     const result = await step.do("step-name", async () => {
       // Your logic
@@ -78,7 +123,11 @@ import { InMemoryWorkflowStorage } from "@codehz/workflow/storages/in-memory";
 const storage = new InMemoryWorkflowStorage();
 
 // Create workflow
-const workflow = new LocalWorkflow(MyWorkflow, env, storage);
+const workflow = new LocalWorkflow<MyEnv, MyParams, MyEventMap, MyResult>(
+  MyWorkflow,
+  env,
+  storage,
+);
 
 // Create instance
 const instance = await workflow.create({
@@ -131,6 +180,13 @@ You can implement custom storage backends, such as file storage, database storag
 
 The base class for workflows, you need to inherit from this class and implement the `run` method.
 
+**Generic parameters** (must be explicitly specified):
+
+- `Env`: Environment type (default: `unknown`)
+- `Params`: Parameter type (default: `unknown`)
+- `EventMap`: Event mapping type (default: `Record<string, any>`)
+- `Result`: Return result type (default: `void`)
+
 ### WorkflowStep
 
 Provides step execution methods:
@@ -143,7 +199,7 @@ Provides step execution methods:
 
 ### WorkflowInstance
 
-Instance management:
+Instance management. Generic parameters are the same as `LocalWorkflow`.
 
 - `pause()`: Pause instance execution
 - `resume()`: Resume instance execution
@@ -154,7 +210,7 @@ Instance management:
 
 ### LocalWorkflow
 
-Workflow management:
+Workflow management. Generic parameters are the same as `WorkflowEntrypoint`.
 
 - `create(options)`: Create an instance
 - `createBatch(batch)`: Batch create

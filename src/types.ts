@@ -4,7 +4,7 @@
  * 工作流事件接口，表示触发工作流实例的事件。
  * @template T 事件载荷的类型
  */
-export interface WorkflowEvent<T = any> {
+export interface WorkflowEvent<T = unknown> {
   /** 事件的只读载荷数据 */
   payload: Readonly<T>;
   /** 事件发生的时间戳 */
@@ -63,14 +63,15 @@ export type StepState =
 /**
  * 工作流实例状态详情接口
  * @template Params 实例参数的类型
+ * @template Result 结果类型
  */
-export interface InstanceStatusDetail<Params = any> {
+export interface InstanceStatusDetail<Params = unknown, Result = void> {
   /** 实例的当前状态 */
   status: InstanceStatus;
   /** 可选的错误信息 */
   error?: string;
   /** 可选的输出结果 */
-  output?: any;
+  output?: Result;
   /** 触发此实例的事件 */
   event: WorkflowEvent<Params>;
   /** 所有步骤的状态记录，用于恢复 */
@@ -91,7 +92,7 @@ export interface InstanceSummary {
  * 创建工作流实例的选项接口
  * @template Params 实例参数的类型
  */
-export interface WorkflowInstanceCreateOptions<Params = any> {
+export interface WorkflowInstanceCreateOptions<Params = unknown> {
   /** 可选的实例ID，如果不提供将自动生成 */
   id?: string;
   /** 可选的实例参数 */
@@ -188,10 +189,12 @@ export interface WorkflowStep<
  * 工作流实例接口，提供实例管理方法
  * @template Params 实例参数类型
  * @template EventMap 事件映射类型
+ * @template Result 结果类型
  */
 export interface WorkflowInstance<
-  Params = any,
+  Params = unknown,
   EventMap extends Record<string, any> = Record<string, any>,
+  Result = void,
 > {
   /** 实例ID */
   id: string;
@@ -241,7 +244,7 @@ export interface WorkflowInstance<
    * console.log(`Instance is ${status.status}`);
    * ```
    */
-  status(): Promise<InstanceStatusDetail<Params>>;
+  status(): Promise<InstanceStatusDetail<Params, Result>>;
 
   /**
    * 向实例发送事件
@@ -264,10 +267,12 @@ export interface WorkflowInstance<
  * 工作流接口，提供创建和管理实例的方法
  * @template Params 实例参数类型
  * @template EventMap 事件映射类型
+ * @template Result 结果类型
  */
 export interface Workflow<
-  Params = any,
+  Params = unknown,
   EventMap extends Record<string, any> = Record<string, any>,
+  Result = void,
 > {
   /**
    * 创建一个新的工作流实例
@@ -283,7 +288,7 @@ export interface Workflow<
    */
   create(
     options?: WorkflowInstanceCreateOptions<Params>,
-  ): Promise<WorkflowInstance<Params, EventMap>>;
+  ): Promise<WorkflowInstance<Params, EventMap, Result>>;
 
   /**
    * 批量创建工作流实例
@@ -299,7 +304,7 @@ export interface Workflow<
    */
   createBatch(
     batch: WorkflowInstanceCreateOptions<Params>[],
-  ): Promise<WorkflowInstance<Params, EventMap>[]>;
+  ): Promise<WorkflowInstance<Params, EventMap, Result>[]>;
 
   /**
    * 根据ID获取工作流实例
@@ -310,7 +315,7 @@ export interface Workflow<
    * const instance = await workflow.get('instance-id');
    * ```
    */
-  get(id: string): Promise<WorkflowInstance<Params, EventMap>>;
+  get(id: string): Promise<WorkflowInstance<Params, EventMap, Result>>;
 
   /**
    * 恢复所有活动实例的状态
@@ -327,11 +332,13 @@ export interface Workflow<
  * @template Env 环境类型
  * @template Params 参数类型
  * @template EventMap 事件映射类型
+ * @template Result 结果类型
  */
 export abstract class WorkflowEntrypoint<
-  Env = any,
-  Params = any,
+  Env = unknown,
+  Params = unknown,
   EventMap extends Record<string, any> = Record<string, any>,
+  Result = void,
 > {
   /**
    * 构造函数
@@ -359,7 +366,7 @@ export abstract class WorkflowEntrypoint<
   abstract run(
     event: WorkflowEvent<Params>,
     step: WorkflowStep<EventMap>,
-  ): Promise<any>;
+  ): Promise<Result>;
 }
 
 /**
@@ -378,7 +385,10 @@ export interface WorkflowStorage {
    * });
    * ```
    */
-  saveInstance(instanceId: string, state: InstanceStatusDetail): Promise<void>;
+  saveInstance(
+    instanceId: string,
+    state: InstanceStatusDetail<unknown, unknown>,
+  ): Promise<void>;
 
   /**
    * 更新实例状态
@@ -391,7 +401,7 @@ export interface WorkflowStorage {
    */
   updateInstance(
     instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
+    updates: Partial<InstanceStatusDetail<unknown, unknown>>,
   ): Promise<void>;
 
   /**
@@ -425,7 +435,9 @@ export interface WorkflowStorage {
    * }
    * ```
    */
-  loadInstance(instanceId: string): Promise<InstanceStatusDetail | null>;
+  loadInstance(
+    instanceId: string,
+  ): Promise<InstanceStatusDetail<unknown, unknown> | null>;
 
   /**
    * 删除实例

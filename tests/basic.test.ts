@@ -3,7 +3,12 @@ import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
 import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 
 // 简单工作流类用于基本测试
-class SimpleWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
+class SimpleWorkflow extends WorkflowEntrypoint<
+  {},
+  { value: number },
+  Record<string, any>,
+  number
+> {
   async run(event: WorkflowEvent<{ value: number }>, step: WorkflowStep) {
     return await step.do("simple", async () => {
       return event.payload.value * 2;
@@ -12,8 +17,16 @@ class SimpleWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
 }
 
 // 测试工作流类
-class TestWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
-  async run(event: WorkflowEvent<{ message: string }>, step: WorkflowStep) {
+class TestWorkflow extends WorkflowEntrypoint<
+  {},
+  { message: string },
+  { "test-event": string },
+  { result: string; eventData: string }
+> {
+  async run(
+    event: WorkflowEvent<{ message: string }>,
+    step: WorkflowStep<{ "test-event": string }>,
+  ) {
     const result = await step.do("step1", async () => {
       return `Processed: ${event.payload.message}`;
     });
@@ -138,7 +151,12 @@ test("获取工作流实例", async () => {
 });
 
 // 测试恢复未完成的工作流
-class PausableWorkflow extends WorkflowEntrypoint<{}, { value: number }> {
+class PausableWorkflow extends WorkflowEntrypoint<
+  {},
+  { value: number },
+  Record<string, any>,
+  number
+> {
   async run(event: WorkflowEvent<{ value: number }>, step: WorkflowStep) {
     const result1 = await step.do("step1", async () => {
       return event.payload.value * 2;

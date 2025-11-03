@@ -3,8 +3,16 @@ import type { WorkflowEvent, WorkflowStep } from "../src/index.js";
 import { LocalWorkflow, WorkflowEntrypoint } from "../src/index.js";
 
 // 测试工作流类
-class TestWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
-  async run(event: WorkflowEvent<{ message: string }>, step: WorkflowStep) {
+class TestWorkflow extends WorkflowEntrypoint<
+  {},
+  { message: string },
+  { "test-event": string },
+  { result: string; eventData: string }
+> {
+  async run(
+    event: WorkflowEvent<{ message: string }>,
+    step: WorkflowStep<{ "test-event": string }>,
+  ) {
     const result = await step.do("step1", async () => {
       return `Processed: ${event.payload.message}`;
     });
@@ -21,7 +29,12 @@ class TestWorkflow extends WorkflowEntrypoint<{}, { message: string }> {
 }
 
 // 嵌套步骤测试工作流
-class NestedStepWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
+class NestedStepWorkflow extends WorkflowEntrypoint<
+  {},
+  {},
+  Record<string, any>,
+  { result: string }
+> {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
     return await step.do("outer-step", async () => {
       const innerResult = await step.do("inner-step", async () => {
@@ -35,6 +48,8 @@ class NestedStepWorkflow extends WorkflowEntrypoint<{}, { result: string }> {
 // 并行步骤测试工作流
 class ParallelStepWorkflow extends WorkflowEntrypoint<
   {},
+  {},
+  Record<string, any>,
   { results: number[] }
 > {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
@@ -50,6 +65,8 @@ class ParallelStepWorkflow extends WorkflowEntrypoint<
 // 测试字符串 duration 和 sleepUntil
 class StringDurationWorkflow extends WorkflowEntrypoint<
   {},
+  {},
+  Record<string, any>,
   { slept: boolean }
 > {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
@@ -62,6 +79,8 @@ class StringDurationWorkflow extends WorkflowEntrypoint<
 // 测试字符串 duration 无效
 class InvalidDurationWorkflow extends WorkflowEntrypoint<
   {},
+  {},
+  Record<string, any>,
   { slept: boolean }
 > {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
@@ -71,7 +90,12 @@ class InvalidDurationWorkflow extends WorkflowEntrypoint<
 }
 
 // 测试 sleepUntil 过去时间
-class PastTimestampWorkflow extends WorkflowEntrypoint<{}, { slept: boolean }> {
+class PastTimestampWorkflow extends WorkflowEntrypoint<
+  {},
+  {},
+  Record<string, any>,
+  { slept: boolean }
+> {
   async run(event: WorkflowEvent<{}>, step: WorkflowStep) {
     await step.sleepUntil("sleep-past", new Date(Date.now() - 1000));
     return { slept: true };
@@ -94,8 +118,8 @@ test("工作流步骤执行和睡眠", async () => {
 
   const status = await instance.status();
   expect(status.status).toBe("complete");
-  expect(status.output.result).toBe("Processed: test");
-  expect(status.output.eventData).toBe("event-data");
+  expect(status.output!.result).toBe("Processed: test");
+  expect(status.output!.eventData).toBe("event-data");
 });
 
 test("等待事件超时", async () => {
@@ -121,7 +145,7 @@ test("嵌套使用 step.do", async () => {
 
   const status = await instance.status();
   expect(status.status).toBe("complete");
-  expect(status.output.result).toBe("outer with inner result");
+  expect(status.output!.result).toBe("outer with inner result");
 });
 
 test("工作流中使用 Promise.all 等待多个步骤", async () => {
@@ -133,7 +157,7 @@ test("工作流中使用 Promise.all 等待多个步骤", async () => {
 
   const status = await instance.status();
   expect(status.status).toBe("complete");
-  expect(status.output.results).toEqual([1, 2, 3]);
+  expect(status.output!.results).toEqual([1, 2, 3]);
 });
 
 test("字符串 duration 无效测试", async () => {

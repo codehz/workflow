@@ -24,19 +24,26 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { build } from "./build.js";
 
+console.log("🚀 Starting release process...");
+const startTime = Date.now();
+
 // 获取最新 git tag
+console.log("🏷️  Getting latest git tag...");
 const tagOutput = await Bun.$`git describe --tags --abbrev=0`;
 const tag = tagOutput.text().trim();
 const version = tag.startsWith("v") ? tag.slice(1) : tag;
+console.log(`📦 Version: ${version}`);
 
 const pkgPath = "package.json";
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
 pkg.version = version;
 
 // 运行构建
+console.log("🔨 Running build process...");
 await build();
 
 // 生成 exports
+console.log("📋 Generating package exports...");
 const distFiles = readdirSync("dist", { recursive: true }).filter(
   (f) => typeof f === "string" && f.endsWith(".js"),
 );
@@ -53,8 +60,10 @@ for (const file of distFiles) {
     import: `./${normalizedFile}`,
   };
 }
+console.log(`📦 Generated exports for ${Object.keys(exports).length} files`);
 
 // 创建 dist/package.json
+console.log("📄 Creating dist/package.json...");
 const publishPkg = {
   name: pkg.name,
   version: pkg.version,
@@ -72,16 +81,24 @@ writeFileSync(
   join("dist", "package.json"),
   JSON.stringify(publishPkg, null, 2),
 );
+console.log("✅ dist/package.json created");
 
 // 复制 LICENSE 文件到 dist
+console.log("📋 Copying LICENSE file...");
 await Bun.$`cp LICENSE dist/LICENSE`;
+console.log("✅ LICENSE copied");
 
 // 复制所有 README 文件到 dist
+console.log("📖 Copying README files...");
 const readmeFiles = readdirSync(".").filter(
   (f) => typeof f === "string" && f.startsWith("README") && f.endsWith(".md"),
 );
 for (const file of readmeFiles) {
   await Bun.$`cp ${file} dist/${file}`;
 }
+console.log(`✅ ${readmeFiles.length} README files copied`);
 
-console.log("Release script completed. Ready for publish.");
+const totalTime = Date.now() - startTime;
+console.log(
+  `🎉 Release script completed in ${totalTime}ms! Ready for publish.`,
+);

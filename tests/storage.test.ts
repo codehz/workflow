@@ -18,6 +18,8 @@ async function isRedisAvailable(): Promise<boolean> {
   }
 }
 
+const redisAvailable = await isRedisAvailable();
+
 test("内存存储功能", async () => {
   const storage = new InMemoryWorkflowStorage();
 
@@ -76,13 +78,7 @@ test("内存存储功能", async () => {
   expect(listAfterDelete).toEqual([]);
 });
 
-test("Bun Redis存储功能", async () => {
-  const redisAvailable = await isRedisAvailable();
-  if (!redisAvailable) {
-    console.log("Redis不可用，跳过Redis存储测试");
-    return;
-  }
-
+test.skipIf(!redisAvailable)("Bun Redis存储功能", async () => {
   const storage = new BunRedisWorkflowStorage(redis, "test-storage");
 
   // 清空测试数据

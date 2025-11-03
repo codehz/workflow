@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 
 import type {
-  InstanceStatusDetail,
+  InstanceInfo,
   InstanceSummary,
   StepState,
   WorkflowStorage,
@@ -75,10 +75,7 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @param state 实例状态详情
    */
-  async saveInstance(
-    instanceId: string,
-    state: InstanceStatusDetail,
-  ): Promise<void> {
+  async saveInstance(instanceId: string, state: InstanceInfo): Promise<void> {
     const createdAt = state.event.timestamp.getTime();
 
     // 插入或替换实例
@@ -95,32 +92,14 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
       this.serialize(state.event),
       createdAt,
     );
-
-    // 删除旧的步骤状态
-    const deleteSteps = this.db.prepare(`
-      DELETE FROM ${this.getTableName("steps")} WHERE instance_id = ?;
-    `);
-    deleteSteps.run(instanceId);
-
-    // 插入新的步骤状态
-    if (state.stepStates && Object.keys(state.stepStates).length > 0) {
-      const insertStep = this.db.prepare(`
-        INSERT INTO ${this.getTableName("steps")} (instance_id, step_name, step_state)
-        VALUES (?, ?, ?);
-      `);
-
-      for (const [stepName, stepState] of Object.entries(state.stepStates)) {
-        insertStep.run(instanceId, stepName, this.serialize(stepState));
-      }
-    }
   }
 
   /**
    * 从 SQLite 加载实例状态。
    * @param instanceId 实例 ID
-   * @returns 实例状态详情，如果不存在则返回 null
+   * @returns 实例状态详情，如果不存在或无效则返回 null
    */
-  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
+  async loadInstance(instanceId: string): Promise<InstanceInfo | null> {
     const selectInstance = this.db.prepare(`
       SELECT status, error, output, event FROM ${this.getTableName("instances")} WHERE id = ?;
     `);
@@ -131,20 +110,9 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
     const event = this.deserialize(instanceRow.event);
     if (!event) return null; // 无效实例
 
-    const selectSteps = this.db.prepare(`
-      SELECT step_name, step_state FROM ${this.getTableName("steps")} WHERE instance_id = ?;
-    `);
-    const stepRows = selectSteps.all(instanceId) as any[];
-
-    const stepStates: Record<string, StepState> = {};
-    for (const row of stepRows) {
-      stepStates[row.step_name] = this.deserialize(row.step_state);
-    }
-
-    const result: InstanceStatusDetail = {
+    const result: InstanceInfo = {
       status: instanceRow.status,
       event,
-      stepStates: Object.keys(stepStates).length > 0 ? stepStates : {},
     };
 
     if (instanceRow.error) result.error = this.deserialize(instanceRow.error);
@@ -155,13 +123,33 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
   }
 
   /**
+   * 从 SQLite 加载指定步骤的状态。
+   * @param instanceId 实例 ID
+   * @param stepName 步骤名称
+   * @returns 步骤状态，如果不存在则返回 null
+   */
+  async loadStepState(
+    instanceId: string,
+    stepName: string,
+  ): Promise<StepState | null> {
+    const selectStep = this.db.prepare(`
+      SELECT step_state FROM ${this.getTableName("steps")} WHERE instance_id = ? AND step_name = ?;
+    `);
+    const row = selectStep.get(instanceId, stepName) as any;
+
+    if (!row) return null;
+
+    return this.deserialize(row.step_state);
+  }
+
+  /**
    * 更新实例状态。
    * @param instanceId 实例 ID
    * @param updates 要更新的字段
    */
   async updateInstance(
     instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
+    updates: Partial<InstanceInfo>,
   ): Promise<void> {
     const setParts: string[] = [];
     const values: any[] = [];
@@ -196,29 +184,6 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
       const updateStmt = this.db.prepare(updateQuery);
       updateStmt.run(...values);
     }
-
-    // 处理步骤状态更新
-    if (updates.stepStates !== undefined) {
-      // 删除旧的步骤状态
-      const deleteSteps = this.db.prepare(`
-        DELETE FROM ${this.getTableName("steps")} WHERE instance_id = ?;
-      `);
-      deleteSteps.run(instanceId);
-
-      // 插入新的步骤状态
-      if (Object.keys(updates.stepStates).length > 0) {
-        const insertStep = this.db.prepare(`
-          INSERT INTO ${this.getTableName("steps")} (instance_id, step_name, step_state)
-          VALUES (?, ?, ?);
-        `);
-
-        for (const [stepName, stepState] of Object.entries(
-          updates.stepStates,
-        )) {
-          insertStep.run(instanceId, stepName, this.serialize(stepState));
-        }
-      }
-    }
   }
 
   /**
@@ -249,6 +214,17 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
       DELETE FROM ${this.getTableName("instances")} WHERE id = ?;
     `);
     deleteInstance.run(instanceId);
+  }
+
+  /**
+   * 清理实例的所有步骤状态。
+   * @param instanceId 实例 ID
+   */
+  async clearAllStepStates(instanceId: string): Promise<void> {
+    const deleteSteps = this.db.prepare(`
+      DELETE FROM ${this.getTableName("steps")} WHERE instance_id = ?;
+    `);
+    deleteSteps.run(instanceId);
   }
 
   /**

@@ -1,7 +1,7 @@
 import { RedisClient } from "bun";
 
 import type {
-  InstanceStatusDetail,
+  InstanceInfo,
   InstanceSummary,
   StepState,
   WorkflowStorage,
@@ -121,12 +121,8 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @param state 实例状态详情
    */
-  async saveInstance(
-    instanceId: string,
-    state: InstanceStatusDetail,
-  ): Promise<void> {
+  async saveInstance(instanceId: string, state: InstanceInfo): Promise<void> {
     const statusKey = this.getStatusKey(instanceId);
-    const stepsHashKey = this.getStepsHashKey(instanceId);
     const errorKey = this.getErrorKey(instanceId);
     const outputKey = this.getOutputKey(instanceId);
     const eventKey = this.getEventKey(instanceId);
@@ -134,16 +130,8 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     // 并发执行所有独立的 set/del 操作
     const operations: Promise<any>[] = [
       this.client.set(statusKey, this.serialize(state.status)),
-      this.client.del(stepsHashKey), // 清空哈希
+      this.client.set(eventKey, this.serialize(state.event)),
     ];
-
-    if (state.stepStates && Object.keys(state.stepStates).length > 0) {
-      const hashFields = Object.entries(state.stepStates).flatMap(([k, v]) => [
-        k,
-        this.serialize(v),
-      ]);
-      operations.push(this.client.hmset(stepsHashKey, hashFields));
-    }
 
     // 处理其他字段
     if (state.error !== undefined) {
@@ -156,12 +144,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       operations.push(this.client.set(outputKey, this.serialize(state.output)));
     } else {
       operations.push(this.client.del(outputKey));
-    }
-
-    if (state.event !== undefined) {
-      operations.push(this.client.set(eventKey, this.serialize(state.event)));
-    } else {
-      operations.push(this.client.del(eventKey));
     }
 
     await Promise.all(operations);
@@ -178,20 +160,13 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @returns 实例状态详情，如果不存在则返回 null
    */
-  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
+  async loadInstance(instanceId: string): Promise<InstanceInfo | null> {
     const statusStr = await this.client.get(this.getStatusKey(instanceId));
     if (!statusStr) return null;
 
     const status = this.deserialize(statusStr);
-    const stepsHash = await this.client.hgetall(
-      this.getStepsHashKey(instanceId),
-    );
-    const stepStates: Record<string, StepState> = {};
-    for (const [k, v] of Object.entries(stepsHash)) {
-      stepStates[k] = this.deserialize(v as string);
-    }
 
-    // 加载其他字段
+    // 加载其他字段，但不加载步骤状态
     const [errorStr, outputStr, eventStr] = await Promise.all([
       this.client.get(this.getErrorKey(instanceId)),
       this.client.get(this.getOutputKey(instanceId)),
@@ -199,13 +174,12 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
     ]);
 
     if (!eventStr) {
-      // 无效实例，没有事件数据，丢弃
+      // 无效实例，没有事件数据
       return null;
     }
 
-    const result: InstanceStatusDetail = {
+    const result: InstanceInfo = {
       status,
-      stepStates,
       event: this.deserialize(eventStr),
     };
 
@@ -216,13 +190,32 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
   }
 
   /**
+   * 从 Redis 加载指定步骤的状态。
+   * @param instanceId 实例 ID
+   * @param stepName 步骤名称
+   * @returns 步骤状态，如果不存在则返回 null
+   */
+  async loadStepState(
+    instanceId: string,
+    stepName: string,
+  ): Promise<StepState | null> {
+    const stepStateStr = await this.client.hget(
+      this.getStepsHashKey(instanceId),
+      stepName,
+    );
+    if (!stepStateStr) return null;
+
+    return this.deserialize(stepStateStr);
+  }
+
+  /**
    * 更新实例状态。
    * @param instanceId 实例 ID
    * @param updates 要更新的字段
    */
   async updateInstance(
     instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
+    updates: Partial<InstanceInfo>,
   ): Promise<void> {
     const operations: Promise<any>[] = [];
 
@@ -233,17 +226,6 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
           this.serialize(updates.status),
         ),
       );
-    }
-
-    if (updates.stepStates !== undefined) {
-      const stepsHashKey = this.getStepsHashKey(instanceId);
-      operations.push(this.client.del(stepsHashKey));
-      if (Object.keys(updates.stepStates).length > 0) {
-        const hashFields = Object.entries(updates.stepStates).flatMap(
-          ([k, v]) => [k, this.serialize(v)],
-        );
-        operations.push(this.client.hmset(stepsHashKey, hashFields));
-      }
     }
 
     // 处理其他字段
@@ -322,6 +304,14 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       ),
       this.client.zrem(this.getInstancesZSetKey(), instanceId),
     ]);
+  }
+
+  /**
+   * 清理实例的所有步骤状态。
+   * @param instanceId 实例 ID
+   */
+  async clearAllStepStates(instanceId: string): Promise<void> {
+    await this.client.del(this.getStepsHashKey(instanceId));
   }
 
   /**

@@ -39,7 +39,8 @@ test("recover 恢复由于shutdown终止的工作流", async () => {
   // 检查状态，应该在 sleep1 中
   let status = await instance.status();
   expect(status.status).toBe("running");
-  expect(status.stepStates?.["step1"]?.status).toBe("completed");
+  const step1State = await storage.loadStepState(instance.id, "step1");
+  expect(step1State?.status).toBe("completed");
 
   // 调用 shutdown，终止工作流
   await workflow1.shutdown();
@@ -62,6 +63,14 @@ test("recover 恢复由于shutdown终止的工作流", async () => {
   status = await recoveredInstance.status();
   expect(status.status).toBe("complete");
   expect(status.output).toBe("completed");
-  expect(status.stepStates?.["step1"]?.status).toBe("completed");
-  expect(status.stepStates?.["step2"]?.status).toBe("completed");
+  const recoveredStep1State = await storage.loadStepState(
+    recoveredInstance.id,
+    "step1",
+  );
+  expect(recoveredStep1State?.status).toBe("completed");
+  const recoveredStep2State = await storage.loadStepState(
+    recoveredInstance.id,
+    "step2",
+  );
+  expect(recoveredStep2State?.status).toBe("completed");
 });

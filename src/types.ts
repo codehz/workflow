@@ -61,11 +61,11 @@ export type StepState =
     };
 
 /**
- * 工作流实例状态详情接口
+ * 工作流实例信息接口
  * @template Params 实例参数的类型
  * @template Result 结果类型
  */
-export interface InstanceStatusDetail<Params = unknown, Result = void> {
+export interface InstanceInfo<Params = unknown, Result = void> {
   /** 实例的当前状态 */
   status: InstanceStatus;
   /** 可选的错误信息 */
@@ -74,8 +74,6 @@ export interface InstanceStatusDetail<Params = unknown, Result = void> {
   output?: Result;
   /** 触发此实例的事件 */
   event: WorkflowEvent<Params>;
-  /** 所有步骤的状态记录，用于恢复 */
-  stepStates?: Record<string, StepState>;
 }
 
 /**
@@ -244,7 +242,7 @@ export interface WorkflowInstance<
    * console.log(`Instance is ${status.status}`);
    * ```
    */
-  status(): Promise<InstanceStatusDetail<Params, Result>>;
+  status(): Promise<InstanceInfo<Params, Result>>;
 
   /**
    * 向实例发送事件
@@ -424,7 +422,7 @@ export interface WorkflowStorage {
    */
   saveInstance(
     instanceId: string,
-    state: InstanceStatusDetail<unknown, unknown>,
+    state: InstanceInfo<unknown, unknown>,
   ): Promise<void>;
 
   /**
@@ -438,7 +436,7 @@ export interface WorkflowStorage {
    */
   updateInstance(
     instanceId: string,
-    updates: Partial<InstanceStatusDetail<unknown, unknown>>,
+    updates: Partial<InstanceInfo<unknown, unknown>>,
   ): Promise<void>;
 
   /**
@@ -474,7 +472,25 @@ export interface WorkflowStorage {
    */
   loadInstance(
     instanceId: string,
-  ): Promise<InstanceStatusDetail<unknown, unknown> | null>;
+  ): Promise<InstanceInfo<unknown, unknown> | null>;
+
+  /**
+   * 加载指定步骤的状态
+   * @param instanceId 实例ID
+   * @param stepName 步骤名称
+   * @returns 步骤状态，如果不存在则返回null
+   * @example
+   * ```ts
+   * const stepState = await storage.loadStepState('instance-1', 'step1');
+   * if (stepState) {
+   *   console.log('Step status:', stepState.status);
+   * }
+   * ```
+   */
+  loadStepState(
+    instanceId: string,
+    stepName: string,
+  ): Promise<StepState | null>;
 
   /**
    * 删除实例
@@ -485,6 +501,16 @@ export interface WorkflowStorage {
    * ```
    */
   deleteInstance(instanceId: string): Promise<void>;
+
+  /**
+   * 清理实例的所有步骤状态
+   * @param instanceId 实例ID
+   * @example
+   * ```ts
+   * await storage.clearAllStepStates('instance-1');
+   * ```
+   */
+  clearAllStepStates(instanceId: string): Promise<void>;
 
   /**
    * 列出所有实例摘要

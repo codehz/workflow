@@ -7,7 +7,6 @@ export {
 } from "./types.js";
 export type {
   InstanceStatus,
-  InstanceStatusDetail,
   InstanceSummary,
   StepState,
   Workflow,

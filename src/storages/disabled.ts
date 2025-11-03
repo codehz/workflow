@@ -2,7 +2,7 @@
 
 import { DISABLED_PROMISE } from "../constants.js";
 import type {
-  InstanceStatusDetail,
+  InstanceInfo,
   InstanceSummary,
   StepState,
   WorkflowStorage,
@@ -21,10 +21,7 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @param state 实例状态详情
    * @returns 永不解决的 Promise
    */
-  async saveInstance(
-    _instanceId: string,
-    _state: InstanceStatusDetail,
-  ): Promise<void> {
+  async saveInstance(_instanceId: string, _state: InstanceInfo): Promise<void> {
     return DISABLED_PROMISE;
   }
 
@@ -33,9 +30,29 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @returns 永不解决的 Promise
    */
-  async loadInstance(
+  async loadInstance(_instanceId: string): Promise<InstanceInfo | null> {
+    return DISABLED_PROMISE;
+  }
+
+  /**
+   * 加载实例基本状态。
+   * @param instanceId 实例 ID
+   * @returns 永不解决的 Promise
+   */
+  async loadInstanceBasic(_instanceId: string): Promise<InstanceInfo | null> {
+    return DISABLED_PROMISE;
+  }
+
+  /**
+   * 加载指定步骤的状态。
+   * @param instanceId 实例 ID
+   * @param stepName 步骤名称
+   * @returns 永不解决的 Promise
+   */
+  async loadStepState(
     _instanceId: string,
-  ): Promise<InstanceStatusDetail | null> {
+    _stepName: string,
+  ): Promise<StepState | null> {
     return DISABLED_PROMISE;
   }
 
@@ -47,7 +64,7 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    */
   async updateInstance(
     _instanceId: string,
-    _updates: Partial<InstanceStatusDetail>,
+    _updates: Partial<InstanceInfo>,
   ): Promise<void> {
     return DISABLED_PROMISE;
   }
@@ -73,6 +90,15 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
    * @returns 永不解决的 Promise
    */
   async deleteInstance(_instanceId: string): Promise<void> {
+    return DISABLED_PROMISE;
+  }
+
+  /**
+   * 清理实例的所有步骤状态。
+   * @param instanceId 实例 ID
+   * @returns 永不解决的 Promise
+   */
+  async clearAllStepStates(_instanceId: string): Promise<void> {
     return DISABLED_PROMISE;
   }
 

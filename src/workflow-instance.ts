@@ -1,4 +1,4 @@
-import type { InstanceStatusDetail, WorkflowInstance } from "./types.js";
+import type { InstanceInfo, WorkflowInstance } from "./types.js";
 import { WorkflowExecutor } from "./workflow-executor.js";
 
 class LocalWorkflowInstance<
@@ -41,10 +41,10 @@ class LocalWorkflowInstance<
     await this.executor.restartInstance(this.id);
   }
 
-  async status(): Promise<InstanceStatusDetail<Params, Result>> {
+  async status(): Promise<InstanceInfo<Params, Result>> {
     const state = await this.storage.loadInstance(this.id);
     if (!state) throw new Error(`Instance ${this.id} not found`);
-    return state as InstanceStatusDetail<Params, Result>;
+    return state as InstanceInfo<Params, Result>;
   }
 
   async sendEvent<K extends keyof EventMap>(options: {

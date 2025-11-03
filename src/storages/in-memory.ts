@@ -1,7 +1,7 @@
 // src/storages/in-memory.ts - 内存存储实现
 
 import type {
-  InstanceStatusDetail,
+  InstanceInfo,
   InstanceSummary,
   StepState,
   WorkflowStorage,
@@ -14,17 +14,16 @@ import type {
  */
 export class InMemoryWorkflowStorage implements WorkflowStorage {
   /** 存储实例数据的 Map */
-  private storage = new Map<string, InstanceStatusDetail>();
+  private storage = new Map<string, InstanceInfo>();
+  /** 存储步骤状态的 Map，键格式为 "instanceId:stepName" */
+  private stepStorage = new Map<string, StepState>();
 
   /**
    * 保存实例状态到内存。
    * @param instanceId 实例 ID
    * @param state 实例状态详情
    */
-  async saveInstance(
-    instanceId: string,
-    state: InstanceStatusDetail,
-  ): Promise<void> {
+  async saveInstance(instanceId: string, state: InstanceInfo): Promise<void> {
     this.storage.set(instanceId, { ...state });
   }
 
@@ -33,7 +32,7 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
    * @param instanceId 实例 ID
    * @returns 实例状态详情，如果不存在或无效则返回 null
    */
-  async loadInstance(instanceId: string): Promise<InstanceStatusDetail | null> {
+  async loadInstance(instanceId: string): Promise<InstanceInfo | null> {
     const instance = this.storage.get(instanceId);
     if (!instance || !instance.event) {
       return null;
@@ -49,7 +48,7 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
    */
   async updateInstance(
     instanceId: string,
-    updates: Partial<InstanceStatusDetail>,
+    updates: Partial<InstanceInfo>,
   ): Promise<void> {
     const existing = this.storage.get(instanceId);
     if (existing) {
@@ -72,14 +71,25 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
     stepName: string,
     stepState: StepState,
   ): Promise<void> {
+    // 确保实例存在
     const existing = this.storage.get(instanceId);
-    if (existing) {
-      const stepStates = existing.stepStates || {};
-      stepStates[stepName] = stepState;
-      this.storage.set(instanceId, { ...existing, stepStates });
-    } else {
+    if (!existing) {
       throw new Error(`Instance ${instanceId} not found`);
     }
+    this.stepStorage.set(`${instanceId}:${stepName}`, stepState);
+  }
+
+  /**
+   * 从内存加载指定步骤的状态。
+   * @param instanceId 实例 ID
+   * @param stepName 步骤名称
+   * @returns 步骤状态，如果不存在则返回 null
+   */
+  async loadStepState(
+    instanceId: string,
+    stepName: string,
+  ): Promise<StepState | null> {
+    return this.stepStorage.get(`${instanceId}:${stepName}`) || null;
   }
 
   /**
@@ -88,6 +98,25 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
    */
   async deleteInstance(instanceId: string): Promise<void> {
     this.storage.delete(instanceId);
+    // 删除所有相关的步骤状态
+    for (const key of this.stepStorage.keys()) {
+      if (key.startsWith(`${instanceId}:`)) {
+        this.stepStorage.delete(key);
+      }
+    }
+  }
+
+  /**
+   * 清理实例的所有步骤状态。
+   * @param instanceId 实例 ID
+   */
+  async clearAllStepStates(instanceId: string): Promise<void> {
+    // 删除所有相关的步骤状态
+    for (const key of this.stepStorage.keys()) {
+      if (key.startsWith(`${instanceId}:`)) {
+        this.stepStorage.delete(key);
+      }
+    }
   }
 
   /**

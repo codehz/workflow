@@ -33,14 +33,12 @@ test("内存存储功能", async () => {
   await storage.saveInstance("test-id", {
     status: "running",
     event,
-    stepStates: {},
   });
 
   // 加载实例
   const loaded = await storage.loadInstance("test-id");
   expect(loaded).not.toBeNull();
   expect(loaded!.status).toBe("running");
-  expect(loaded!.stepStates).toEqual({});
   expect(loaded!.event.instanceId).toBe("test-id");
   expect(loaded!.event.payload).toEqual({});
 
@@ -54,8 +52,8 @@ test("内存存储功能", async () => {
     status: "completed",
     result: "step-result",
   });
-  const withStep = await storage.loadInstance("test-id");
-  expect(withStep!.stepStates!["step1"]).toEqual({
+  const step1State = await storage.loadStepState("test-id", "step1");
+  expect(step1State).toEqual({
     status: "completed",
     result: "step-result",
   });
@@ -97,14 +95,12 @@ test.skipIf(!redisAvailable)("Bun Redis存储功能", async () => {
   await storage.saveInstance("test-id", {
     status: "running",
     event,
-    stepStates: {},
   });
 
   // 加载实例
   const loaded = await storage.loadInstance("test-id");
   expect(loaded).not.toBeNull();
   expect(loaded!.status).toBe("running");
-  expect(loaded!.stepStates).toEqual({});
   expect(loaded!.event.instanceId).toBe("test-id");
   expect(loaded!.event.payload).toEqual({});
 
@@ -118,8 +114,8 @@ test.skipIf(!redisAvailable)("Bun Redis存储功能", async () => {
     status: "completed",
     result: "step-result",
   });
-  const withStep = await storage.loadInstance("test-id");
-  expect(withStep!.stepStates!["step1"]).toEqual({
+  const step1State = await storage.loadStepState("test-id", "step1");
+  expect(step1State).toEqual({
     status: "completed",
     result: "step-result",
   });
@@ -157,14 +153,12 @@ test("Bun SQLite存储功能", async () => {
   await storage.saveInstance("test-id", {
     status: "running",
     event,
-    stepStates: {},
   });
 
   // 加载实例
   const loaded = await storage.loadInstance("test-id");
   expect(loaded).not.toBeNull();
   expect(loaded!.status).toBe("running");
-  expect(loaded!.stepStates).toEqual({});
   expect(loaded!.event.instanceId).toBe("test-id");
   expect(loaded!.event.payload).toEqual({});
 
@@ -178,8 +172,8 @@ test("Bun SQLite存储功能", async () => {
     status: "completed",
     result: "step-result",
   });
-  const withStep = await storage.loadInstance("test-id");
-  expect(withStep!.stepStates!["step1"]).toEqual({
+  const step1State = await storage.loadStepState("test-id", "step1");
+  expect(step1State).toEqual({
     status: "completed",
     result: "step-result",
   });

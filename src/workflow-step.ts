@@ -34,42 +34,35 @@ class LocalWorkflowStep<
     const cb =
       typeof configOrCallback === "function" ? configOrCallback : callback!;
 
-    // 加载当前状态
-    const state = await this.storage.loadInstance(this.instanceId);
-    if (!state) throw new Error("Instance not found");
-
-    // 初始化 stepStates 如果不存在
-    if (!state.stepStates) {
-      state.stepStates = {};
-    }
-
-    const stepState = state.stepStates[name];
-    if (stepState) {
-      if (stepState.status === "completed") {
-        return stepState.result as T;
+    // 先检查步骤状态，避免加载整个实例
+    const existingStepState = await this.storage.loadStepState(
+      this.instanceId,
+      name,
+    );
+    if (existingStepState) {
+      if (existingStepState.status === "completed") {
+        return existingStepState.result as T;
       }
-      if (stepState.status === "failed") {
-        throw new Error(stepState.error);
+      if (existingStepState.status === "failed") {
+        throw new Error(existingStepState.error);
       }
       // 如果是 running 或其他，继续
-    } else {
-      // 初始化步骤状态
-      state.stepStates[name] = { status: "pending" };
     }
 
     // 执行步骤
     let result: T | undefined;
     const maxRetries = config?.retries?.limit || 0;
 
-    // 设置为 running，如果还没有
-    if (!stepState || stepState.status === "pending") {
-      await this.storage.updateStepState(this.instanceId, name, {
-        status: "running",
-        retries: 0,
-      });
-    }
+    // 从现有状态中获取重试次数，如果没有则为 0
+    const initialRetries = existingStepState?.retries || 0;
 
-    let attempts = state.stepStates[name]!.retries || 0;
+    // 设置为 running
+    await this.storage.updateStepState(this.instanceId, name, {
+      status: "running",
+      retries: initialRetries,
+    });
+
+    let attempts = initialRetries;
 
     if (this.isShutdown()) return DISABLED_PROMISE;
 
@@ -123,13 +116,12 @@ class LocalWorkflowStep<
       throw new Error(`Invalid duration: ${duration}`);
     }
 
-    // 加载当前状态
-    const state = await this.storage.loadInstance(this.instanceId);
-    if (!state) throw new Error("Instance not found");
-    if (!state.stepStates) state.stepStates = {};
-
-    const stepState = state.stepStates[name];
-    if (stepState && stepState.status === "completed") {
+    // 先检查步骤状态，避免加载整个实例
+    const existingStepState = await this.storage.loadStepState(
+      this.instanceId,
+      name,
+    );
+    if (existingStepState && existingStepState.status === "completed") {
       return;
     }
 
@@ -167,13 +159,12 @@ class LocalWorkflowStep<
       throw new Error(`Timestamp is in the past or invalid: ${timestamp}`);
     }
 
-    // 加载当前状态
-    const state = await this.storage.loadInstance(this.instanceId);
-    if (!state) throw new Error("Instance not found");
-    if (!state.stepStates) state.stepStates = {};
-
-    const stepState = state.stepStates[name];
-    if (stepState && stepState.status === "completed") {
+    // 先检查步骤状态，避免加载整个实例
+    const existingStepState = await this.storage.loadStepState(
+      this.instanceId,
+      name,
+    );
+    if (existingStepState && existingStepState.status === "completed") {
       return;
     }
 
@@ -209,18 +200,17 @@ class LocalWorkflowStep<
         : options.timeout
       : 24 * 60 * 60 * 1000; // 默认24小时
 
-    // 加载当前状态
-    const state = await this.storage.loadInstance(this.instanceId);
-    if (!state) throw new Error("Instance not found");
-    if (!state.stepStates) state.stepStates = {};
-
-    const stepState = state.stepStates[name];
-    if (stepState) {
-      if (stepState.status === "completed") {
-        return stepState.result;
+    // 先检查步骤状态，避免加载整个实例
+    const existingStepState = await this.storage.loadStepState(
+      this.instanceId,
+      name,
+    );
+    if (existingStepState) {
+      if (existingStepState.status === "completed") {
+        return existingStepState.result;
       }
-      if (stepState.status === "failed") {
-        throw new Error(stepState.error);
+      if (existingStepState.status === "failed") {
+        throw new Error(existingStepState.error);
       }
       // 如果是 waitingForEvent，继续等待
     }

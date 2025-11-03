@@ -1,6 +1,6 @@
 import { DisabledWorkflowStorage } from "./storages/disabled.js";
 import type {
-  InstanceStatusDetail,
+  InstanceInfo,
   WorkflowEvent,
   WorkflowInstanceCreateOptions,
 } from "./types.js";
@@ -44,7 +44,7 @@ class WorkflowExecutor<
       instanceId: id,
     };
 
-    const initialState: InstanceStatusDetail<Params, Result> = {
+    const initialState: InstanceInfo<Params, Result> = {
       status: "queued",
       output: undefined,
       // 将触发事件保存到状态中，便于恢复/重启
@@ -128,9 +128,11 @@ class WorkflowExecutor<
 
     // 清除步骤进度，设置为 queued
     await this.storage.updateInstance(instanceId, {
-      stepStates: {}, // 清除所有步骤状态
       status: "queued",
     });
+
+    // 清除所有步骤状态
+    await this.storage.clearAllStepStates(instanceId);
 
     // 清除之前的运行状态
     this.running.delete(instanceId);

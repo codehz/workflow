@@ -207,3 +207,75 @@ test("恢复未完成的工作流", async () => {
   expect(status.status).toBe("complete");
   expect(status.output).toBe(20); // 5*2 + 10 = 20
 });
+
+test("WorkflowEntrypoint.create 与直接继承效果一致", async () => {
+  // 定义环境和参数类型
+  type Env = { multiplier: number };
+  type Params = { value: number };
+  type EventMap = Record<string, any>;
+  type Result = number;
+
+  // 定义函数
+  const fn = async function (
+    this: Env,
+    event: WorkflowEvent<Params>,
+    step: WorkflowStep<EventMap>,
+  ): Promise<Result> {
+    return await step.do("test", async () => {
+      return event.payload.value * this.multiplier;
+    });
+  };
+
+  // 使用 create 创建类
+  const CreatedWorkflow = WorkflowEntrypoint.create<
+    Env,
+    Params,
+    EventMap,
+    Result
+  >(fn);
+
+  // 直接继承的类
+  class DirectWorkflow extends WorkflowEntrypoint<
+    Env,
+    Params,
+    EventMap,
+    Result
+  > {
+    async run(
+      event: WorkflowEvent<Params>,
+      step: WorkflowStep<EventMap>,
+    ): Promise<Result> {
+      return await step.do("test", async () => {
+        return event.payload.value * this.env.multiplier;
+      });
+    }
+  }
+
+  // Mock step
+  const mockStep = {
+    do: async (_name: string, callback: () => Promise<any>) => {
+      return await callback();
+    },
+  } as WorkflowStep<EventMap>;
+
+  // Mock event
+  const mockEvent: WorkflowEvent<Params> = {
+    payload: { value: 10 },
+    timestamp: new Date(),
+    instanceId: "test-instance",
+  };
+
+  // 环境
+  const env: Env = { multiplier: 3 };
+
+  // 创建实例
+  const createdInstance = new CreatedWorkflow(env);
+  const directInstance = new DirectWorkflow(env);
+
+  // 运行并比较结果
+  const createdResult = await createdInstance.run(mockEvent, mockStep);
+  const directResult = await directInstance.run(mockEvent, mockStep);
+
+  expect(createdResult).toBe(directResult);
+  expect(createdResult).toBe(30); // 10 * 3
+});

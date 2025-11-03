@@ -169,3 +169,49 @@ test("sleepUntil 过去时间测试", async () => {
   expect(status.status).toBe("errored");
   expect(status.error).toContain("Timestamp is in the past");
 });
+
+// 测试 null payload 事件
+class NullPayloadWorkflow extends WorkflowEntrypoint<
+  {},
+  { message: string },
+  { "null-event": null },
+  { result: string; eventData: null }
+> {
+  async run(
+    event: WorkflowEvent<{ message: string }>,
+    step: WorkflowStep<{ "null-event": null }>,
+  ) {
+    const result = await step.do("step1", async () => {
+      return `Processed: ${event.payload.message}`;
+    });
+
+    const eventData = await step.waitForEvent("wait1", {
+      type: "null-event",
+      timeout: 1000,
+    });
+
+    return { result, eventData };
+  }
+}
+
+test("等待事件 null payload 测试", async () => {
+  const workflow = new LocalWorkflow(NullPayloadWorkflow);
+  const instance = await workflow.create({
+    params: { message: "test" },
+  });
+
+  // 发送 null payload 事件
+  setTimeout(() => {
+    instance.sendEvent({ type: "null-event", payload: null });
+  }, 100);
+
+  // 等待完成
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const status = await instance.status();
+  expect(status.status).toBe("complete");
+  expect(status.output).toEqual({
+    result: "Processed: test",
+    eventData: null,
+  });
+});

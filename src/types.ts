@@ -538,4 +538,38 @@ export interface WorkflowStorage {
    * ```
    */
   listActiveInstances(): Promise<string[]>;
+
+  /**
+   * 保存 pending 事件
+   * @param instanceId 实例ID
+   * @param eventType 事件类型
+   * @param payload 事件载荷
+   * @example
+   * ```ts
+   * await storage.savePendingEvent('instance-1', 'user-input', { action: 'approve' });
+   * ```
+   */
+  savePendingEvent(
+    instanceId: string,
+    eventType: string,
+    payload: any,
+  ): Promise<void>;
+
+  /**
+   * 加载并删除 pending 事件
+   * @param instanceId 实例ID
+   * @param eventType 事件类型
+   * @returns 包含事件载荷的对象，如果不存在则返回null
+   * @example
+   * ```ts
+   * const event = await storage.loadPendingEvent('instance-1', 'user-input');
+   * if (event) {
+   *   console.log('Pending event payload:', event.payload);
+   * }
+   * ```
+   */
+  loadPendingEvent(
+    instanceId: string,
+    eventType: string,
+  ): Promise<{ payload: any } | null>;
 }

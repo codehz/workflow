@@ -17,6 +17,8 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
   private storage = new Map<string, InstanceInfo>();
   /** 存储步骤状态的 Map，键格式为 "instanceId:stepName" */
   private stepStorage = new Map<string, StepState>();
+  /** 存储 pending 事件的 Map，键格式为 "instanceId:eventType" */
+  private pendingEvents = new Map<string, any>();
 
   /**
    * 保存实例状态到内存。
@@ -141,5 +143,42 @@ export class InMemoryWorkflowStorage implements WorkflowStorage {
           state.status !== "terminated" && state.status !== "complete",
       )
       .map(([id]) => id);
+  }
+
+  /**
+   * 保存 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @param payload 事件载荷
+   */
+  async savePendingEvent(
+    instanceId: string,
+    eventType: string,
+    payload: any,
+  ): Promise<void> {
+    const key = `${instanceId}:${eventType}`;
+    // 只有在没有pending事件时才保存（避免覆盖已存在的pending事件）
+    if (!this.pendingEvents.has(key)) {
+      this.pendingEvents.set(key, payload);
+    }
+  }
+
+  /**
+   * 加载并删除 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @returns 包含事件载荷的对象，如果不存在则返回 null
+   */
+  async loadPendingEvent(
+    instanceId: string,
+    eventType: string,
+  ): Promise<{ payload: any } | null> {
+    const key = `${instanceId}:${eventType}`;
+    const payload = this.pendingEvents.get(key);
+    if (payload !== undefined) {
+      this.pendingEvents.delete(key);
+      return { payload };
+    }
+    return null;
   }
 }

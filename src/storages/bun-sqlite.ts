@@ -56,6 +56,17 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
       );
     `);
 
+    // 创建 pending 事件表
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS ${this.getTableName("pending_events")} (
+        instance_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        PRIMARY KEY (instance_id, event_type),
+        FOREIGN KEY (instance_id) REFERENCES ${this.getTableName("instances")} (id) ON DELETE CASCADE
+      );
+    `);
+
     // 启用 WAL 模式以提高性能
     this.db.run("PRAGMA journal_mode = WAL;");
   }
@@ -251,5 +262,51 @@ export class BunSQLiteWorkflowStorage implements WorkflowStorage {
     `);
     const rows = selectActive.all() as any[];
     return rows.map((row) => row.id);
+  }
+
+  /**
+   * 保存 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @param payload 事件载荷
+   */
+  async savePendingEvent(
+    instanceId: string,
+    eventType: string,
+    payload: any,
+  ): Promise<void> {
+    const upsertEvent = this.db.prepare(`
+      INSERT OR IGNORE INTO ${this.getTableName("pending_events")} (instance_id, event_type, payload)
+      VALUES (?, ?, ?);
+    `);
+    upsertEvent.run(instanceId, eventType, this.serialize(payload));
+  }
+
+  /**
+   * 加载并删除 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @returns 包含事件载荷的对象，如果不存在则返回 null
+   */
+  async loadPendingEvent(
+    instanceId: string,
+    eventType: string,
+  ): Promise<{ payload: any } | null> {
+    const selectEvent = this.db.prepare(`
+      SELECT payload FROM ${this.getTableName("pending_events")}
+      WHERE instance_id = ? AND event_type = ?;
+    `);
+    const row = selectEvent.get(instanceId, eventType) as any;
+
+    if (!row) return null;
+
+    // 删除事件
+    const deleteEvent = this.db.prepare(`
+      DELETE FROM ${this.getTableName("pending_events")}
+      WHERE instance_id = ? AND event_type = ?;
+    `);
+    deleteEvent.run(instanceId, eventType);
+
+    return { payload: this.deserialize(row.payload) };
   }
 }

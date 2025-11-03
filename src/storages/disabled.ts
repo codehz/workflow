@@ -117,4 +117,32 @@ export class DisabledWorkflowStorage implements WorkflowStorage {
   async listActiveInstances(): Promise<string[]> {
     return DISABLED_PROMISE;
   }
+
+  /**
+   * 保存 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @param payload 事件载荷
+   * @returns 永不解决的 Promise
+   */
+  async savePendingEvent(
+    _instanceId: string,
+    _eventType: string,
+    _payload: any,
+  ): Promise<void> {
+    return DISABLED_PROMISE;
+  }
+
+  /**
+   * 加载并删除 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @returns 永不解决的 Promise
+   */
+  async loadPendingEvent(
+    _instanceId: string,
+    _eventType: string,
+  ): Promise<{ payload: any } | null> {
+    return DISABLED_PROMISE;
+  }
 }

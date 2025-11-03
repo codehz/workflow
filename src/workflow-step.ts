@@ -34,6 +34,9 @@ class LocalWorkflowStep<
     if (listener) {
       listener(payload);
       this.eventListeners.delete(type);
+    } else {
+      // 如果没有监听器，保存为 pending 事件
+      this.storage.savePendingEvent(this.instanceId, type, payload);
     }
   }
 
@@ -285,6 +288,22 @@ class LocalWorkflowStep<
     });
 
     await this.checkShutdown();
+
+    // 先检查是否有 pending 事件
+    const pendingEvent = await this.storage.loadPendingEvent(
+      this.instanceId,
+      eventType,
+    );
+    if (pendingEvent !== null) {
+      // 有 pending 事件，直接返回
+      await this.checkShutdown();
+      await this.storage.updateStepState(this.instanceId, name, {
+        status: "completed",
+        result: pendingEvent.payload,
+      });
+      await this.checkShutdown();
+      return pendingEvent.payload;
+    }
 
     try {
       const result = await Promise.race([

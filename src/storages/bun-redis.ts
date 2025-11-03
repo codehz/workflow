@@ -82,6 +82,15 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
   }
 
   /**
+   * 获取 pending 事件哈希键。
+   * @param instanceId 实例 ID
+   * @returns Redis 键
+   */
+  private getPendingEventsHashKey(instanceId: string): string {
+    return `${this.getInstanceKey(instanceId)}:pending_events`;
+  }
+
+  /**
    * 获取错误键。
    * @param instanceId 实例 ID
    * @returns Redis 键
@@ -353,5 +362,46 @@ export class BunRedisWorkflowStorage implements WorkflowStorage {
       minScore,
       "+inf",
     );
+  }
+
+  /**
+   * 保存 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @param payload 事件载荷
+   */
+  async savePendingEvent(
+    instanceId: string,
+    eventType: string,
+    payload: any,
+  ): Promise<void> {
+    // 只有在字段不存在时才设置（避免覆盖已存在的pending事件）
+    await this.client.hsetnx(
+      this.getPendingEventsHashKey(instanceId),
+      eventType,
+      this.serialize(payload),
+    );
+  }
+
+  /**
+   * 加载并删除 pending 事件。
+   * @param instanceId 实例 ID
+   * @param eventType 事件类型
+   * @returns 包含事件载荷的对象，如果不存在则返回 null
+   */
+  async loadPendingEvent(
+    instanceId: string,
+    eventType: string,
+  ): Promise<{ payload: any } | null> {
+    const payloadStr = await this.client.hget(
+      this.getPendingEventsHashKey(instanceId),
+      eventType,
+    );
+    if (!payloadStr) return null;
+
+    // 删除事件
+    await this.client.hdel(this.getPendingEventsHashKey(instanceId), eventType);
+
+    return { payload: this.deserialize(payloadStr) };
   }
 }
